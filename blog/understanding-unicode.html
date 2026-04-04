@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unicode & Character Encoding — rishcloudops</title>
+  <meta name="description" content="A visual guide to why text is more complicated than it looks — from ASCII chaos to UTF-8.">
+  <link rel="stylesheet" href="../style.css">
+  <style>
+    /* ── Unicode post additional styles (theme-aware) ── */
+    .post-tabs {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 2rem;
+    }
+    .post-tab {
+      padding: 6px 14px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border2);
+      background: transparent;
+      color: var(--muted);
+      font-size: .78rem;
+      cursor: pointer;
+      font-family: var(--font-mono);
+      letter-spacing: .02em;
+      transition: background .15s, color .15s, border-color .15s;
+    }
+    .post-tab:hover { background: var(--bg2); color: var(--text); }
+    .post-tab.active {
+      background: var(--bg3);
+      color: var(--accent);
+      border-color: var(--accent-dim);
+    }
+    .u-panel { display: none; }
+    .u-panel.active { display: block; }
+
+    .u-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+      margin-bottom: .75rem;
+      background: var(--bg2);
+    }
+    .u-card-title {
+      font-size: .875rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .u-card-body {
+      font-size: .82rem;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+    .u-card-body code {
+      font-family: var(--font-mono);
+      background: var(--bg3);
+      padding: 2px 5px;
+      border-radius: 3px;
+      font-size: .75rem;
+      color: var(--accent);
+    }
+
+    /* timeline */
+    .u-timeline { position: relative; padding-left: 28px; }
+    .u-timeline::before {
+      content: '';
+      position: absolute;
+      left: 8px; top: 6px; bottom: 6px;
+      width: 1px;
+      background: var(--border2);
+    }
+    .t-item { position: relative; margin-bottom: 1.1rem; }
+    .t-dot {
+      position: absolute; left: -24px; top: 5px;
+      width: 10px; height: 10px; border-radius: 50%;
+      border: 2px solid var(--bg);
+    }
+    .dot-blue   { background: #378add; }
+    .dot-amber  { background: #ef9f27; }
+    .dot-red    { background: #e24b4a; }
+    .dot-green  { background: var(--accent); }
+    .t-year  { font-family: var(--font-mono); font-size: .7rem; color: var(--muted); margin-bottom: 1px; }
+    .t-label { font-size: .9rem; font-weight: 600; color: var(--text); }
+    .t-desc  { font-size: .8rem; color: var(--muted); line-height: 1.55; margin-top: 3px; }
+
+    /* encoding table */
+    .enc-table { width: 100%; border-collapse: collapse; font-size: .78rem; margin-top: .5rem; }
+    .enc-table th {
+      text-align: left;
+      font-weight: 500;
+      font-size: .72rem;
+      font-family: var(--font-mono);
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 7px 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .enc-table td {
+      padding: 8px 8px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+      vertical-align: top;
+      line-height: 1.5;
+    }
+    .enc-table td:nth-child(2) { color: var(--muted); font-size: .75rem; }
+    .enc-table tr:last-child td { border-bottom: none; }
+
+    /* badges */
+    .ubadge {
+      display: inline-block;
+      font-size: .68rem;
+      font-family: var(--font-mono);
+      padding: 2px 8px;
+      border-radius: 999px;
+      margin-right: 4px;
+      border: 1px solid transparent;
+    }
+    .ubadge-green { background: rgba(200,255,87,.12); color: var(--accent); border-color: var(--accent-dim); }
+    .ubadge-blue  { background: rgba(55,138,221,.12); color: #7dc4f8; border-color: rgba(55,138,221,.35); }
+    .ubadge-amber { background: rgba(239,159,39,.12); color: #f5c26b; border-color: rgba(239,159,39,.35); }
+    .ubadge-red   { background: rgba(226,75,74,.12);  color: #f08080; border-color: rgba(226,75,74,.35); }
+
+    /* demo box */
+    .demo-box {
+      border: 1px solid var(--border2);
+      border-radius: var(--radius);
+      padding: .85rem 1rem;
+      margin-bottom: .6rem;
+      background: var(--bg2);
+    }
+    .demo-label {
+      font-size: .68rem;
+      font-family: var(--font-mono);
+      font-weight: 500;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      margin-bottom: .45rem;
+    }
+    .byte-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: .35rem; }
+    .ubyte {
+      font-family: var(--font-mono);
+      font-size: .72rem;
+      padding: 2px 7px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .ubyte-hot  { background: rgba(239,159,39,.13); color: #f5c26b; border-color: rgba(239,159,39,.4); }
+    .ubyte-cool { background: rgba(55,138,221,.12); color: #7dc4f8; border-color: rgba(55,138,221,.35); }
+    .ubyte-gray { background: var(--bg3); color: var(--muted); }
+
+    /* key insight */
+    .key-insight {
+      border-left: 3px solid var(--accent);
+      padding: .65rem 1rem;
+      border-radius: 0 var(--radius) var(--radius) 0;
+      background: var(--bg2);
+      margin: .85rem 0;
+      font-size: .875rem;
+      color: var(--text);
+      line-height: 1.6;
+    }
+    .key-insight.danger { border-color: var(--danger); }
+
+    /* char input */
+    #char-input {
+      padding: 7px 12px;
+      font-size: .9rem;
+      border-radius: var(--radius);
+      border: 1px solid var(--border2);
+      background: var(--bg2);
+      color: var(--text);
+      width: 100%;
+      margin-bottom: .85rem;
+      font-family: var(--font-body);
+      outline: none;
+      transition: border-color .2s;
+    }
+    #char-input:focus { border-color: var(--accent-dim); }
+    #char-input::placeholder { color: var(--muted); }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="container">
+    <a href="../index.html" class="nav-logo">~/rishcloudops<span>_</span></a>
+    <div class="nav-links">
+      <a href="../index.html">home</a>
+      <a href="../projects.html">projects</a>
+      <a href="../about.html">about</a>
+    </div>
+  </div>
+</nav>
+
+<!-- POST HERO -->
+<div class="post-hero">
+  <div class="container post-content">
+    <div class="post-date">
+      <span class="post-tag">Character Sets</span>
+      <span class="post-date" style="margin-left:.75rem;">April 4, 2026</span>
+      <span style="font-family:var(--font-mono);font-size:.75rem;color:var(--muted);margin-left:.75rem;">10 min read</span>
+    </div>
+    <h1>Unicode &amp; Character Encoding</h1>
+  </div>
+</div>
+
+<!-- POST BODY -->
+<div class="post-body">
+  <div class="container post-content">
+
+    <p>Text is complicated. Before Unicode, every country and software vendor invented their own encoding systems — and they didn't agree with each other. Here's a visual guide to how we got into that mess, and how we got out.</p>
+
+    <!-- TABS -->
+    <div class="post-tabs" style="margin-top:1.75rem;">
+      <button class="post-tab active" onclick="show('history')">1. History</button>
+      <button class="post-tab" onclick="show('unicode')">2. Unicode</button>
+      <button class="post-tab" onclick="show('encodings')">3. Encodings</button>
+      <button class="post-tab" onclick="show('demo')">4. Try it</button>
+      <button class="post-tab" onclick="show('rule')">5. The golden rule</button>
+    </div>
+
+    <!-- HISTORY -->
+    <div class="u-panel active" id="panel-history">
+      <h2 style="margin-bottom:.5rem;">A brief history of character encoding chaos</h2>
+      <p style="margin-bottom:1.5rem;">Before Unicode, every country and software vendor invented their own systems — and they didn't agree with each other.</p>
+      <div class="u-timeline">
+        <div class="t-item">
+          <div class="t-dot dot-blue"></div>
+          <div class="t-year">1960s</div>
+          <div class="t-label">ASCII — 7-bit English only</div>
+          <div class="t-desc">128 characters: English letters, digits, punctuation. Codes 0–127. Worked fine if you only wrote in English.</div>
+        </div>
+        <div class="t-item">
+          <div class="t-dot dot-amber"></div>
+          <div class="t-year">1970s–80s</div>
+          <div class="t-label">OEM free-for-all (128–255)</div>
+          <div class="t-desc">Everyone used the spare high bit differently. Code 130 = <em>é</em> in France, <em>ג</em> in Israel. Résumés arrived as rגsumגs.</div>
+        </div>
+        <div class="t-item">
+          <div class="t-dot dot-amber"></div>
+          <div class="t-year">1980s</div>
+          <div class="t-label">ANSI code pages — standardised mess</div>
+          <div class="t-desc">Below 128: agreed. Above 128: hundreds of "code pages" (CP862 for Hebrew, 737 for Greek…). Hebrew + Greek on one screen? Impossible.</div>
+        </div>
+        <div class="t-item">
+          <div class="t-dot dot-red"></div>
+          <div class="t-year">1980s (Asia)</div>
+          <div class="t-label">DBCS — double-byte hacks</div>
+          <div class="t-desc">Asian scripts have thousands of characters. Some letters used 1 byte, some 2. Moving backwards through a string required special OS functions.</div>
+        </div>
+        <div class="t-item">
+          <div class="t-dot dot-green"></div>
+          <div class="t-year">1991</div>
+          <div class="t-label">Unicode — one ring to rule them all</div>
+          <div class="t-desc">A single universal standard. Every character in every writing system (+ Klingon) gets a unique code point. No more conflicts.</div>
+        </div>
+      </div>
+      <div class="key-insight">The internet exposed the mess: once you started sending text <em>between</em> computers, all those conflicting systems broke down.</div>
+    </div>
+
+    <!-- UNICODE -->
+    <div class="u-panel" id="panel-unicode">
+      <h2 style="margin-bottom:.5rem;">How Unicode thinks about characters</h2>
+      <p style="margin-bottom:1.5rem;">Unicode separates two ideas that used to be mixed up: what a character <em>is</em> vs. how it's stored in memory.</p>
+      <div class="u-card">
+        <div class="u-card-title">Step 1 — Platonic ideal (abstract identity)</div>
+        <div class="u-card-body">Every letter is an abstract concept, independent of font, style, or how it looks. <strong>A</strong> in Times New Roman = <strong>A</strong> in Arial. They're the same character.</div>
+      </div>
+      <div class="u-card">
+        <div class="u-card-title">Step 2 — Code point (a unique number)</div>
+        <div class="u-card-body">
+          Each abstract character gets a unique number, written <code>U+XXXX</code>.<br><br>
+          <span class="ubadge ubadge-blue">A = U+0041</span>
+          <span class="ubadge ubadge-blue">é = U+00E9</span>
+          <span class="ubadge ubadge-blue">ع = U+0639</span>
+          <span class="ubadge ubadge-blue">😀 = U+1F600</span><br><br>
+          There are over 1.1 million possible code points — far more than 65,536, so the "Unicode = 16 bits" myth is wrong.
+        </div>
+      </div>
+      <div class="u-card">
+        <div class="u-card-title">Step 3 — Encoding (how it's stored)</div>
+        <div class="u-card-body">Code points are abstract. Encoding is how you write them to disk or memory as actual bytes. This is a separate decision — and there are several options.</div>
+      </div>
+      <div class="key-insight">
+        <strong>"Hello"</strong> as code points: <code>U+0048 U+0065 U+006C U+006C U+006F</code> — five numbers. Not yet bytes. Not yet stored. Just identity.
+      </div>
+    </div>
+
+    <!-- ENCODINGS -->
+    <div class="u-panel" id="panel-encodings">
+      <h2 style="margin-bottom:.5rem;">Unicode encodings compared</h2>
+      <p style="margin-bottom:1.5rem;">Same code points, different bytes on disk. Each encoding has trade-offs.</p>
+      <table class="enc-table">
+        <thead>
+          <tr><th>Encoding</th><th>How it works</th><th>Best for</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>UTF-8</strong> <span class="ubadge ubadge-green">Recommended</span></td>
+            <td>1 byte for ASCII (0–127), 2–4 bytes for everything else</td>
+            <td>Web, files, APIs. ASCII-compatible — English text looks identical to ASCII.</td>
+          </tr>
+          <tr>
+            <td><strong>UTF-16</strong></td>
+            <td>2 bytes for most chars, 4 for rare ones. Needs byte-order mark (BOM)</td>
+            <td>Windows internals, Java, JavaScript strings</td>
+          </tr>
+          <tr>
+            <td><strong>UTF-32 / UCS-4</strong></td>
+            <td>Always 4 bytes per character — fixed width</td>
+            <td>Internal processing where random access matters. Very space-inefficient.</td>
+          </tr>
+          <tr>
+            <td><strong>UCS-2</strong></td>
+            <td>Always 2 bytes, max 65,536 chars. Can't represent rare characters.</td>
+            <td>Legacy Windows, older COM/VB programs</td>
+          </tr>
+          <tr>
+            <td><strong>Latin-1 / ISO-8859-1</strong> <span class="ubadge ubadge-red">Limited</span></td>
+            <td>1 byte, 256 characters. Western European only.</td>
+            <td>Legacy Western European documents. Russian? Chinese? → ???</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="key-insight" style="margin-top:1rem;">
+        UTF-8 storing <strong>"Hello"</strong>: <code>48 65 6C 6C 6F</code> — identical to ASCII. Americans won't even notice the difference.
+      </div>
+      <div class="demo-box" style="margin-top:.75rem">
+        <div class="demo-label">Byte order mark problem (UTF-16)</div>
+        <div style="font-size:.78rem;color:var(--muted);line-height:1.55;">
+          "H" in big-endian UTF-16: <span class="ubadge ubadge-blue">00 48</span> &nbsp;&nbsp; "H" in little-endian UTF-16: <span class="ubadge ubadge-amber">48 00</span><br>
+          Both are valid! A byte order mark <code>FE FF</code> at the start tells the reader which byte order to use.
+        </div>
+      </div>
+    </div>
+
+    <!-- DEMO -->
+    <div class="u-panel" id="panel-demo">
+      <h2 style="margin-bottom:.5rem;">See the bytes yourself</h2>
+      <p style="margin-bottom:1.25rem;">Type a character or word and see how it's encoded in different systems.</p>
+      <input id="char-input" type="text" value="Hello" oninput="runDemo()" maxlength="20" placeholder="Type something…">
+      <div id="demo-output"></div>
+    </div>
+
+    <!-- GOLDEN RULE -->
+    <div class="u-panel" id="panel-rule">
+      <h2 style="margin-bottom:.5rem;">The single most important rule</h2>
+      <p style="margin-bottom:1.25rem;">After all the history and encoding details, this is the one thing that matters.</p>
+      <div class="key-insight danger" style="font-size:.95rem;font-weight:600;">
+        A string without a known encoding is meaningless. There is no such thing as "plain text."
+      </div>
+      <div class="u-card" style="margin-top:.75rem">
+        <div class="u-card-title">Why this breaks websites</div>
+        <div class="u-card-body">If a browser doesn't know the encoding of a page, it guesses based on byte frequency patterns. Sometimes it guesses wrong — a Bulgarian page shows up as Korean. The user sees gibberish.</div>
+      </div>
+      <div class="u-card">
+        <div class="u-card-title">The fix for HTML</div>
+        <div class="u-card-body">
+          Put this as the very first tag inside <code>&lt;head&gt;</code>:<br><br>
+          <code style="display:inline-block;padding:4px 10px;">&lt;meta charset="UTF-8"&gt;</code><br><br>
+          Or the server sends: <code>Content-Type: text/html; charset=utf-8</code>
+        </div>
+      </div>
+      <div class="u-card">
+        <div class="u-card-title">The fix for email</div>
+        <div class="u-card-body">
+          Email headers must declare: <code>Content-Type: text/plain; charset="UTF-8"</code><br>
+          Without this, your accented characters may arrive as <strong>????</strong>.
+        </div>
+      </div>
+      <div class="u-card">
+        <div class="u-card-title">Practical advice for developers</div>
+        <div class="u-card-body">
+          <span class="ubadge ubadge-green">Always use UTF-8</span> for new projects — files, databases, APIs, HTML.<br><br>
+          <span class="ubadge ubadge-amber">When reading</span> old data, find out its encoding before touching it.<br><br>
+          <span class="ubadge ubadge-red">Never assume</span> that text is ASCII or that "it looks fine on my machine."
+        </div>
+      </div>
+    </div>
+
+    <div class="post-nav">
+      <a href="../index.html">← All posts</a>
+    </div>
+
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <span class="footer-copy">© 2026 rishcloudops. Built with HTML &amp; CSS.</span>
+      <div class="footer-links">
+        <a href="https://github.com/rikkhanna" target="_blank">GitHub</a>
+        <a href="mailto:riishabh.khanna@gmail.com">Email</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+function show(id) {
+  document.querySelectorAll('.u-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.post-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + id).classList.add('active');
+  const tabs = ['history', 'unicode', 'encodings', 'demo', 'rule'];
+  document.querySelectorAll('.post-tab')[tabs.indexOf(id)].classList.add('active');
+  if (id === 'demo') runDemo();
+}
+
+function toHex(n) { return n.toString(16).toUpperCase().padStart(2, '0'); }
+
+function encodeUTF8(str) {
+  const bytes = [];
+  for (const cp of [...str].map(c => c.codePointAt(0))) {
+    if (cp < 0x80) { bytes.push(toHex(cp)); }
+    else if (cp < 0x800) { bytes.push(toHex(0xC0 | (cp >> 6)), toHex(0x80 | (cp & 0x3F))); }
+    else if (cp < 0x10000) { bytes.push(toHex(0xE0 | (cp >> 12)), toHex(0x80 | ((cp >> 6) & 0x3F)), toHex(0x80 | (cp & 0x3F))); }
+    else { bytes.push(toHex(0xF0 | (cp >> 18)), toHex(0x80 | ((cp >> 12) & 0x3F)), toHex(0x80 | ((cp >> 6) & 0x3F)), toHex(0x80 | (cp & 0x3F))); }
+  }
+  return bytes;
+}
+
+function encodeUTF16BE(str) {
+  const bytes = [];
+  for (const c of str) {
+    const cp = c.codePointAt(0);
+    if (cp < 0x10000) { bytes.push(toHex(cp >> 8), toHex(cp & 0xFF)); }
+    else { const s = cp - 0x10000; const h = 0xD800 + (s >> 10); const l = 0xDC00 + (s & 0x3FF); bytes.push(toHex(h >> 8), toHex(h & 0xFF), toHex(l >> 8), toHex(l & 0xFF)); }
+  }
+  return bytes;
+}
+
+function encodeUCS2(str) {
+  return [...str].map(c => { const cp = c.codePointAt(0); return cp > 0xFFFF ? ['??', '??'] : [toHex(cp >> 8), toHex(cp & 0xFF)]; }).flat();
+}
+
+function codePoints(str) {
+  return [...str].map(c => 'U+' + c.codePointAt(0).toString(16).toUpperCase().padStart(4, '0'));
+}
+
+function renderBytes(bytes, cls) {
+  return bytes.map(b => `<span class="ubyte ${cls}">${b}</span>`).join('');
+}
+
+function runDemo() {
+  const str = document.getElementById('char-input').value || 'A';
+  const allAscii = [...str].every(c => c.codePointAt(0) < 128);
+  const hasSupp = [...str].some(c => c.codePointAt(0) > 0xFFFF);
+  const utf8 = encodeUTF8(str);
+  const utf16 = encodeUTF16BE(str);
+  const ucs2 = encodeUCS2(str);
+  const cps = codePoints(str);
+
+  document.getElementById('demo-output').innerHTML = `
+    <div class="demo-box">
+      <div class="demo-label">Unicode code points</div>
+      <div class="byte-row">${cps.map(c => `<span class="ubyte ubyte-cool">${c}</span>`).join('')}</div>
+    </div>
+    <div class="demo-box">
+      <div class="demo-label">UTF-8 bytes (${utf8.length} byte${utf8.length !== 1 ? 's' : ''})</div>
+      <div class="byte-row">${renderBytes(utf8, allAscii ? 'ubyte-gray' : 'ubyte-hot')}</div>
+      <div style="font-size:.72rem;color:var(--muted);margin-top:5px">${allAscii ? 'Identical to ASCII — no overhead for English text' : 'Multi-byte sequences needed for non-ASCII characters'}</div>
+    </div>
+    <div class="demo-box">
+      <div class="demo-label">UTF-16 BE bytes (${utf16.length} bytes)</div>
+      <div class="byte-row">${renderBytes(utf16, 'ubyte-cool')}</div>
+      <div style="font-size:.72rem;color:var(--muted);margin-top:5px">Always at least 2 bytes per character. Note the leading 00s for ASCII — "wasted" space that frustrated early programmers.</div>
+    </div>
+    <div class="demo-box">
+      <div class="demo-label">UCS-2 (legacy 16-bit)</div>
+      <div class="byte-row">${renderBytes(ucs2, 'ubyte-gray')}</div>
+      ${hasSupp ? '<div style="font-size:.72rem;color:var(--danger);margin-top:5px">⚠ Some characters exceed 16 bits and cannot be represented in UCS-2 — shown as ??</div>' : ''}
+    </div>
+  `;
+}
+runDemo();
+</script>
+
+</body>
+</html>
