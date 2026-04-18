@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Breaking Down the docker-ci-base Dockerfile — rishcloudops</title>
+  <meta name="description" content="A deep-dive into a production-grade CI Docker base image: Alpine base, Java 21, Maven, Python, JFrog CLI, and how it all fits together.">
+  <link rel="stylesheet" href="../style.css">
+  <style>
+    /* ── docker-ci-base post styles ── */
+    .post-tabs {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 2rem;
+    }
+    .post-tab {
+      padding: 6px 14px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border2);
+      background: transparent;
+      color: var(--muted);
+      font-size: .78rem;
+      cursor: pointer;
+      font-family: var(--font-mono);
+      letter-spacing: .02em;
+      transition: background .15s, color .15s, border-color .15s;
+    }
+    .post-tab:hover { background: var(--bg2); color: var(--text); }
+    .post-tab.active {
+      background: var(--bg3);
+      color: var(--accent);
+      border-color: var(--accent-dim);
+    }
+    .d-panel { display: none; }
+    .d-panel.active { display: block; }
+
+    /* ── Cards ── */
+    .d-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+      margin-bottom: .75rem;
+      background: var(--bg2);
+    }
+    .d-card-title {
+      font-size: .875rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 4px;
+      font-family: var(--font-mono);
+    }
+    .d-card-body {
+      font-size: .82rem;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+    .d-card-body code {
+      font-family: var(--font-mono);
+      background: var(--bg3);
+      padding: 2px 5px;
+      border-radius: 3px;
+      font-size: .75rem;
+      color: var(--accent);
+    }
+
+    /* ── Layer diagram ── */
+    .layer-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      margin: 1.25rem 0;
+    }
+    .layer-item {
+      border-radius: var(--radius);
+      padding: .6rem 1rem;
+      font-family: var(--font-mono);
+      font-size: .78rem;
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      position: relative;
+      transition: filter .2s;
+    }
+    .layer-item:hover { filter: brightness(1.15); }
+    .layer-base  { background: rgba(55,138,221,.15);  border: 1px solid rgba(55,138,221,.35);  color: #7dc4f8; }
+    .layer-sys   { background: rgba(239,159,39,.12);  border: 1px solid rgba(239,159,39,.35);  color: #f5c26b; }
+    .layer-java  { background: rgba(226,75,74,.12);   border: 1px solid rgba(226,75,74,.35);   color: #f08080; }
+    .layer-maven { background: rgba(200,100,255,.12); border: 1px solid rgba(200,100,255,.35); color: #d0a0ff; }
+    .layer-py    { background: rgba(100,200,255,.12); border: 1px solid rgba(100,200,255,.35); color: #80d8ff; }
+    .layer-jfrog { background: rgba(200,255,87,.12);  border: 1px solid rgba(200,255,87,.35);  color: var(--accent); }
+    .layer-num {
+      width: 20px; height: 20px; border-radius: 50%;
+      background: #080808;
+      font-size: .65rem; font-weight: 600;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      opacity: .7;
+    }
+    .layer-desc {
+      margin-left: auto;
+      font-size: .68rem;
+      opacity: .6;
+      text-align: right;
+      line-height: 1.3;
+    }
+
+    /* ── Code block with line highlight ── */
+    .df-block {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0;
+      margin: 1rem 0;
+      overflow: hidden;
+      font-size: .82rem;
+    }
+    .df-block-header {
+      background: var(--bg3);
+      border-bottom: 1px solid var(--border);
+      padding: .4rem 1rem;
+      font-family: var(--font-mono);
+      font-size: .68rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    .df-block-header span { color: var(--accent); }
+    .df-block pre {
+      padding: 1rem 1.25rem;
+      overflow-x: auto;
+      margin: 0;
+      border: none;
+      background: transparent;
+      line-height: 1.75;
+    }
+    .df-block pre code { font-size: .8rem; color: var(--text); }
+
+    /* syntax colour helpers */
+    .tok-instr { color: #7dc4f8; font-weight: 600; }   /* FROM, RUN, ENV… */
+    .tok-str   { color: #f5c26b; }                      /* quoted strings / values */
+    .tok-cmt   { color: var(--muted); font-style: italic; }  /* # comments */
+    .tok-var   { color: #d0a0ff; }                      /* ${VAR} */
+    .tok-url   { color: #80d8ff; text-decoration: underline; }
+    .tok-flag  { color: var(--accent); }                /* --no-cache etc. */
+    .tok-pkg   { color: #f08080; }                      /* package names */
+
+    /* ── Badges ── */
+    .dbadge {
+      display: inline-block;
+      font-size: .68rem;
+      font-family: var(--font-mono);
+      padding: 2px 8px;
+      border-radius: 999px;
+      margin-right: 4px;
+      border: 1px solid transparent;
+    }
+    .dbadge-green { background: rgba(200,255,87,.12); color: var(--accent); border-color: var(--accent-dim); }
+    .dbadge-blue  { background: rgba(55,138,221,.12); color: #7dc4f8; border-color: rgba(55,138,221,.35); }
+    .dbadge-amber { background: rgba(239,159,39,.12); color: #f5c26b; border-color: rgba(239,159,39,.35); }
+    .dbadge-red   { background: rgba(226,75,74,.12);  color: #f08080; border-color: rgba(226,75,74,.35); }
+    .dbadge-purple{ background: rgba(200,100,255,.12);color: #d0a0ff; border-color: rgba(200,100,255,.35); }
+
+    /* ── Key insight ── */
+    .key-insight {
+      border-left: 3px solid var(--accent);
+      padding: .65rem 1rem;
+      border-radius: 0 var(--radius) var(--radius) 0;
+      background: var(--bg2);
+      margin: .85rem 0;
+      font-size: .875rem;
+      color: var(--text);
+      line-height: 1.6;
+    }
+    .key-insight.warn  { border-color: #f5c26b; }
+    .key-insight.info  { border-color: #7dc4f8; }
+    .key-insight.caution { border-color: var(--danger); }
+
+    /* ── Comparison table ── */
+    .cmp-table { width: 100%; border-collapse: collapse; font-size: .78rem; margin-top: .5rem; }
+    .cmp-table th {
+      text-align: left;
+      font-weight: 500;
+      font-size: .72rem;
+      font-family: var(--font-mono);
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 7px 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .cmp-table td {
+      padding: 8px 8px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+      vertical-align: top;
+      line-height: 1.5;
+    }
+    .cmp-table td:nth-child(2), .cmp-table td:nth-child(3) { color: var(--muted); font-size: .75rem; }
+    .cmp-table tr:last-child td { border-bottom: none; }
+
+    /* ── Package pills ── */
+    .pkg-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+      margin: .75rem 0;
+    }
+    .pkg-pill {
+      font-family: var(--font-mono);
+      font-size: .7rem;
+      padding: 3px 10px;
+      border-radius: 4px;
+      border: 1px solid var(--border2);
+      background: var(--bg3);
+    }
+    .pkg-pill.cat-build   { border-color: rgba(226,75,74,.4);   color: #f08080; }
+    .pkg-pill.cat-python  { border-color: rgba(100,200,255,.4); color: #80d8ff; }
+    .pkg-pill.cat-tools   { border-color: rgba(200,255,87,.4);  color: var(--accent); }
+    .pkg-pill.cat-java    { border-color: rgba(226,75,74,.4);   color: #f08080; }
+    .pkg-pill.cat-misc    { border-color: rgba(239,159,39,.4);  color: #f5c26b; }
+
+    /* ── Flow arrows ── */
+    .flow {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin: 1rem 0;
+    }
+    .flow-step {
+      display: flex;
+      align-items: flex-start;
+      gap: .75rem;
+    }
+    .flow-connector {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 20px;
+      flex-shrink: 0;
+    }
+    .flow-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      border: 2px solid var(--bg);
+      flex-shrink: 0;
+      margin-top: 5px;
+    }
+    .flow-line {
+      width: 1px;
+      flex: 1;
+      background: var(--border2);
+      min-height: 16px;
+    }
+    .flow-body {
+      padding-bottom: 1rem;
+      flex: 1;
+    }
+    .flow-title { font-size: .875rem; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+    .flow-desc  { font-size: .78rem; color: var(--muted); line-height: 1.55; }
+    .flow-desc code {
+      font-family: var(--font-mono);
+      background: var(--bg3);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: .72rem;
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="container">
+    <a href="../index.html" class="nav-logo">~/rishcloudops<span>_</span></a>
+    <div class="nav-links">
+      <a href="../index.html">home</a>
+      <a href="../projects.html">projects</a>
+      <a href="../about.html">about</a>
+    </div>
+  </div>
+</nav>
+
+<!-- POST HERO -->
+<div class="post-hero">
+  <div class="container post-content">
+    <div class="post-date">
+      <span class="post-tag">Docker · CI/CD</span>
+      <span class="post-date" style="margin-left:.75rem;">April 11, 2026</span>
+      <span style="font-family:var(--font-mono);font-size:.75rem;color:var(--muted);margin-left:.75rem;">12 min read</span>
+    </div>
+    <h1>Breaking Down the <em style="font-style:normal;color:var(--accent);">docker-ci-base</em> Dockerfile</h1>
+  </div>
+</div>
+
+<!-- POST BODY -->
+<div class="post-body">
+  <div class="container post-content">
+
+    <p>A CI base image is the foundation every pipeline job runs on. Get it wrong and you're debugging obscure environment differences in production. Get it right and your pipelines are fast, reproducible, and self-contained. Let's tear apart the <code>docker-ci-base</code> Dockerfile layer by layer.</p>
+
+    <!-- TABS -->
+    <div class="post-tabs" style="margin-top:1.75rem;">
+      <button class="post-tab active" onclick="show('overview')">1. Overview</button>
+      <button class="post-tab" onclick="show('base')">2. Base Image</button>
+      <button class="post-tab" onclick="show('packages')">3. System Packages</button>
+      <button class="post-tab" onclick="show('maven')">4. Maven</button>
+      <button class="post-tab" onclick="show('python')">5. Python</button>
+      <button class="post-tab" onclick="show('jfrog')">6. JFrog CLI</button>
+      <button class="post-tab" onclick="show('entrypoint')">7. Entrypoint</button>
+      <button class="post-tab" onclick="show('full')">8. Full File</button>
+      <button class="post-tab" onclick="show('full-settings')">9. Full settings.xml</button>
+    </div>
+
+    <!-- ── 1. OVERVIEW ── -->
+    <div class="d-panel active" id="panel-overview">
+      <h2 style="margin-bottom:.5rem;">What is this image for?</h2>
+      <p style="margin-bottom:1.25rem;">This is a <strong>multi-purpose CI runner base image</strong> — a single Docker image that ships every tool a pipeline might need: Docker CLI, Java 21, Maven, Python 3, Ansible, JFrog CLI, and more.</p>
+
+      <div class="layer-stack">
+        <div class="layer-item layer-base">
+          <div class="layer-num">1</div>
+          <span><strong>docker:27-cli</strong> — Alpine-based Docker CLI image</span>
+          <div class="layer-desc">~50 MB<br>Alpine 3.x</div>
+        </div>
+        <div class="layer-item layer-sys">
+          <div class="layer-num">2</div>
+          <span><strong>System packages</strong> — Python 3, Java 21, build tools, curl, git, ansible, jq/yq…</span>
+          <div class="layer-desc">apk add<br>no-cache</div>
+        </div>
+        <div class="layer-item layer-maven">
+          <div class="layer-num">3</div>
+          <span><strong>Apache Maven 3.9.11</strong> — downloaded from the official archive</span>
+          <div class="layer-desc">~10 MB<br>/opt/maven</div>
+        </div>
+        <div class="layer-item layer-py">
+          <div class="layer-num">4</div>
+          <span><strong>Python packages</strong> — virtualenv, requests, ruamel.yaml, bs4, selinux</span>
+          <div class="layer-desc">pip3<br>PEP-668 safe</div>
+        </div>
+        <div class="layer-item layer-jfrog">
+          <div class="layer-num">5</div>
+          <span><strong>JFrog CLI</strong> — installed via the official install script</span>
+          <div class="layer-desc">latest stable<br>jf binary</div>
+        </div>
+      </div>
+
+      <div class="key-insight">
+        The result is a "fat" CI base image — deliberately so. One image pull per runner, then every job gets the full toolchain without network round-trips at job start.
+      </div>
+
+      <h3 style="margin-top:1.5rem;margin-bottom:.75rem;">What can it do?</h3>
+      <div style="display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem;">
+        <span class="dbadge dbadge-blue">docker build / push</span>
+        <span class="dbadge dbadge-red">mvn package / deploy</span>
+        <span class="dbadge dbadge-amber">ansible-playbook</span>
+        <span class="dbadge dbadge-green">jf rt upload</span>
+        <span class="dbadge dbadge-purple">python scripts</span>
+        <span class="dbadge dbadge-blue">curl / wget</span>
+        <span class="dbadge dbadge-amber">jq / yq transforms</span>
+        <span class="dbadge dbadge-red">rpm packaging</span>
+        <span class="dbadge dbadge-green">git operations</span>
+        <span class="dbadge dbadge-purple">npm / node</span>
+      </div>
+    </div>
+
+    <!-- ── 2. BASE IMAGE ── -->
+    <div class="d-panel" id="panel-base">
+      <h2 style="margin-bottom:.5rem;">The Base Image: <code>docker:27-cli</code></h2>
+      <p style="margin-bottom:1.25rem;">The very first instruction sets the entire foundation of the image.</p>
+
+      <div class="df-block">
+        <div class="df-block-header">🐳 <span>Dockerfile</span> — line 1</div>
+        <pre><code><span class="tok-instr">FROM</span> <span class="tok-str">docker:27-cli</span></code></pre>
+      </div>
+
+      <div class="d-card">
+        <div class="d-card-title">Why <code>docker:27-cli</code> and not <code>ubuntu</code> or <code>debian</code>?</div>
+        <div class="d-card-body">
+          <code>docker:27-cli</code> is an official Docker image that ships only the Docker CLI (no daemon), built on top of <strong>Alpine Linux</strong>. It is:
+          <br><br>
+          <span class="dbadge dbadge-green">Tiny</span> — Alpine base is ~5 MB vs ~70 MB for ubuntu:24.04<br>
+          <span class="dbadge dbadge-blue">Docker-ready</span> — the <code>docker</code> binary is already installed<br>
+          <span class="dbadge dbadge-amber">Secure</span> — minimal attack surface; fewer pre-installed packages<br>
+          <span class="dbadge dbadge-purple">apk-based</span> — Alpine's package manager is fast and cache-aware
+        </div>
+      </div>
+
+      <div class="d-card">
+        <div class="d-card-title">Why pin to <code>27</code> and not <code>latest</code>?</div>
+        <div class="d-card-body">
+          Pinning to a major version (<code>27</code>) provides a balance: you get patch and minor updates automatically (security fixes) but you won't be surprised by a major version bump breaking <code>docker build</code> syntax or flags mid-sprint. Using <code>latest</code> in a base image is a reliability anti-pattern.
+        </div>
+      </div>
+
+      <h3 style="margin-top:1.5rem;margin-bottom:.75rem;">Alpine vs. Debian/Ubuntu comparison</h3>
+      <table class="cmp-table">
+        <thead>
+          <tr><th>Property</th><th>Alpine (this image)</th><th>Ubuntu/Debian</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Base size</strong></td>
+            <td>~5 MB</td>
+            <td>~70–120 MB</td>
+          </tr>
+          <tr>
+            <td><strong>Package manager</strong></td>
+            <td><code>apk</code> — fast, atomic</td>
+            <td><code>apt</code> — feature-rich, slower</td>
+          </tr>
+          <tr>
+            <td><strong>C library</strong></td>
+            <td><code>musl libc</code></td>
+            <td><code>glibc</code></td>
+          </tr>
+          <tr>
+            <td><strong>Shell</strong></td>
+            <td><code>ash</code> (default), <code>bash</code> installable</td>
+            <td><code>bash</code> pre-installed</td>
+          </tr>
+          <tr>
+            <td><strong>Security</strong></td>
+            <td>Minimal surface, no systemd</td>
+            <td>More services pre-installed</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="key-insight warn" style="margin-top:1rem;">
+        ⚠ <strong>musl vs. glibc gotcha:</strong> Some pre-compiled binaries expect glibc and will segfault on Alpine. That's why <code>musl-dev</code> and <code>linux-headers</code> are installed — they allow compiling C extensions (e.g. Python native modules) against musl.
+      </div>
+    </div>
+
+    <!-- ── 3. SYSTEM PACKAGES ── -->
+    <div class="d-panel" id="panel-packages">
+      <h2 style="margin-bottom:.5rem;">System Packages via <code>apk</code></h2>
+      <p style="margin-bottom:1.25rem;">A single chained <code>RUN</code> installs (and verifies) all system-level dependencies.</p>
+
+      <div class="df-block">
+        <div class="df-block-header">🐳 <span>Dockerfile</span> — lines 7–38</div>
+        <pre><code><span class="tok-cmt"># ---------- Versions (single source of truth) ----------</span>
+<span class="tok-instr">ENV</span> <span class="tok-var">MAVEN_VERSION</span>=<span class="tok-str">3.9.11</span> \
+    <span class="tok-var">JAVA_VERSION</span>=<span class="tok-str">21</span> \
+    <span class="tok-var">M2_HOME</span>=<span class="tok-str">/opt/maven</span> \
+    <span class="tok-var">MAVEN_HOME</span>=<span class="tok-str">/opt/maven</span>
+
+<span class="tok-instr">ENV</span> <span class="tok-var">PATH</span>=<span class="tok-str">"${PATH}:${M2_HOME}/bin"</span>
+
+<span class="tok-cmt"># ---------- System packages ----------</span>
+<span class="tok-instr">RUN</span> apk upgrade <span class="tok-flag">--no-cache</span> &amp;&amp; \
+    apk add <span class="tok-flag">--no-cache</span> \
+        <span class="tok-pkg">linux-headers</span> \
+        <span class="tok-pkg">musl-dev</span> \
+        <span class="tok-pkg">python3</span> \
+        <span class="tok-pkg">python3-dev</span> \
+        <span class="tok-pkg">py3-pip</span> \
+        <span class="tok-pkg">gcc</span> \
+        <span class="tok-pkg">curl</span> \
+        <span class="tok-pkg">bash</span> \
+        <span class="tok-pkg">git</span> \
+        <span class="tok-pkg">rpm</span> \
+        <span class="tok-pkg">ansible</span> \
+        <span class="tok-pkg">jq</span> \
+        <span class="tok-pkg">yq</span> \
+        <span class="tok-pkg">openjdk${JAVA_VERSION}</span> \
+        <span class="tok-pkg">npm</span> \
+        <span class="tok-pkg">wget</span> \
+        <span class="tok-pkg">ca-certificates</span> &amp;&amp; \
+    java <span class="tok-flag">-version</span></code></pre>
+      </div>
+
+      <h3 style="margin-bottom:.6rem;">Package breakdown by category</h3>
+      <div class="pkg-grid">
+        <span class="pkg-pill cat-build">linux-headers</span>
+        <span class="pkg-pill cat-build">musl-dev</span>
+        <span class="pkg-pill cat-build">gcc</span>
+        <span class="pkg-pill cat-python">python3</span>
+        <span class="pkg-pill cat-python">python3-dev</span>
+        <span class="pkg-pill cat-python">py3-pip</span>
+        <span class="pkg-pill cat-tools">curl</span>
+        <span class="pkg-pill cat-tools">wget</span>
+        <span class="pkg-pill cat-tools">git</span>
+        <span class="pkg-pill cat-tools">bash</span>
+        <span class="pkg-pill cat-tools">ca-certificates</span>
+        <span class="pkg-pill cat-tools">jq</span>
+        <span class="pkg-pill cat-tools">yq</span>
+        <span class="pkg-pill cat-tools">npm</span>
+        <span class="pkg-pill cat-java">openjdk21</span>
+        <span class="pkg-pill cat-misc">ansible</span>
+        <span class="pkg-pill cat-misc">rpm</span>
+      </div>
+
+      <div class="d-card" style="margin-top:.75rem;">
+        <div class="d-card-title">Why is everything in one <code>RUN</code>?</div>
+        <div class="d-card-body">
+          Docker creates a new image layer for every <code>RUN</code> instruction. If you split package installs across multiple <code>RUN</code> commands, you get more layers, a larger image, and potentially stale cache entries (apt/apk cache files stuck in an intermediate layer). Chaining with <code>&amp;&amp; \</code> keeps it a single layer — and <code>--no-cache</code> means <code>apk</code> never writes its index to disk.
+        </div>
+      </div>
+
+      <div class="d-card">
+        <div class="d-card-title">Why <code>apk upgrade --no-cache</code> first?</div>
+        <div class="d-card-body">
+          The base image (<code>docker:27-cli</code>) may have been built weeks ago. Running <code>apk upgrade</code> before installing anything ensures all existing packages get their latest security patches. <code>--no-cache</code> means do not store the downloaded index in the image (saves ~8 MB per build).
+        </div>
+      </div>
+
+      <div class="d-card">
+        <div class="d-card-title">The ENV VERSION pattern (single source of truth)</div>
+        <div class="d-card-body">
+          <code>JAVA_VERSION=21</code> and <code>MAVEN_VERSION=3.9.11</code> are declared as <code>ENV</code> variables at the top. This means:<br><br>
+          • <code>openjdk${JAVA_VERSION}</code> at install time resolves to <code>openjdk21</code><br>
+          • The Maven download URL uses <code>${MAVEN_VERSION}</code><br>
+          • To upgrade, change <em>one line</em> — no grepping through the file<br>
+          • They are also available at container runtime as environment variables
+        </div>
+      </div>
+
+      <div class="key-insight">
+        <code>java -version</code> at the end of the <code>RUN</code> instruction is a build-time smoke test. If Java didn't install properly, the build fails immediately with a clear error instead of producing a broken image silently.
+      </div>
+    </div>
+
+    <!-- ── 4. MAVEN ── -->
+    <div class="d-panel" id="panel-maven">
+      <h2 style="margin-bottom:.5rem;">Installing Apache Maven</h2>
+      <p style="margin-bottom:1.25rem;">Maven isn't in the Alpine package repository at the required version, so it's downloaded and installed manually from the official Apache archive.</p>
+
+      <div class="df-block">
+        <div class="df-block-header">🐳 <span>Dockerfile</span> — lines 40–46</div>
+        <pre><code><span class="tok-cmt"># ---------- Maven ----------</span>
+<span class="tok-instr">RUN</span> wget <span class="tok-flag">-q</span> <span class="tok-str">"https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz"</span> \
+        <span class="tok-flag">-O</span> /tmp/maven.tar.gz &amp;&amp; \
+    tar <span class="tok-flag">-xzf</span> /tmp/maven.tar.gz <span class="tok-flag">-C</span> /tmp &amp;&amp; \
+    mv <span class="tok-str">"/tmp/apache-maven-${MAVEN_VERSION}"</span> <span class="tok-str">"${M2_HOME}"</span> &amp;&amp; \
+    rm /tmp/maven.tar.gz &amp;&amp; \
+    mvn <span class="tok-flag">--version</span></code></pre>
+      </div>
+
+      <h3 style="margin-bottom:.75rem;">Step-by-step walkthrough</h3>
+      <div class="flow">
+        <div class="flow-step">
+          <div class="flow-connector">
+            <div class="flow-dot" style="background:#7dc4f8;"></div>
+            <div class="flow-line"></div>
+          </div>
+          <div class="flow-body">
+            <div class="flow-title">Download the binary tarball</div>
+            <div class="flow-desc"><code>wget -q "https://archive.apache.org/.../${MAVEN_VERSION}/…-bin.tar.gz" -O /tmp/maven.tar.gz</code><br>Uses the pinned <code>MAVEN_VERSION</code> env var. <code>-q</code> suppresses progress output in CI logs. Downloaded to <code>/tmp</code> — a throwaway location.</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-connector">
+            <div class="flow-dot" style="background:#d0a0ff;"></div>
+            <div class="flow-line"></div>
+          </div>
+          <div class="flow-body">
+            <div class="flow-title">Extract the archive</div>
+            <div class="flow-desc"><code>tar -xzf /tmp/maven.tar.gz -C /tmp</code><br>Extracts the <code>.tar.gz</code> into <code>/tmp</code>. Results in a directory like <code>/tmp/apache-maven-3.9.11/</code>.</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-connector">
+            <div class="flow-dot" style="background:#f5c26b;"></div>
+            <div class="flow-line"></div>
+          </div>
+          <div class="flow-body">
+            <div class="flow-title">Move to the final install path</div>
+            <div class="flow-desc"><code>mv "/tmp/apache-maven-${MAVEN_VERSION}" "${M2_HOME}"</code><br>Moves to <code>/opt/maven</code> (the value of <code>$M2_HOME</code>). This is the conventional Maven home path followed by tooling like Eclipse, IntelliJ, and Maven wrappers.</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-connector">
+            <div class="flow-dot" style="background:var(--danger);"></div>
+            <div class="flow-line"></div>
+          </div>
+          <div class="flow-body">
+            <div class="flow-title">Clean up</div>
+            <div class="flow-desc"><code>rm /tmp/maven.tar.gz</code><br>Removes the downloaded archive in the <em>same layer</em>. Critical: if you did <code>rm</code> in a separate <code>RUN</code> the archive would still occupy space in the previous layer.</div>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-connector">
+            <div class="flow-dot" style="background:var(--accent);"></div>
+          </div>
+          <div class="flow-body">
+            <div class="flow-title">Verify the installation</div>
+            <div class="flow-desc"><code>mvn --version</code><br>Build-time smoke test. The <code>mvn</code> binary is on <code>$PATH</code> because of <code>ENV PATH="${PATH}:${M2_HOME}/bin"</code> set earlier.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="key-insight info">
+        <strong>PATH trick:</strong> <code>ENV PATH="${PATH}:${M2_HOME}/bin"</code> is declared before this <code>RUN</code> block. Docker evaluates <code>ENV</code> at build time, so by the time <code>mvn --version</code> runs, the shell already knows where to find Maven.
+      </div>
+
+      <div class="d-card" style="margin-top:.75rem;">
+        <div class="d-card-title">Why not use <code>apk add maven</code>?</div>
+        <div class="d-card-body">
+          Alpine's <code>maven</code> package often lags behind the latest stable release. For a CI base image where build reproducibility matters, pinning to an exact version (here <code>3.9.11</code>) and downloading from the official Apache archive is far more reliable than trusting the distro package to have the right version.
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 5. PYTHON ── -->
+    <div class="d-panel" id="panel-python">
+      <h2 style="margin-bottom:.5rem;">Python Packages (PEP-668 Safe)</h2>
+      <p style="margin-bottom:1.25rem;">Python 3 is installed via <code>apk</code>, but pip packages are installed with a special flag to avoid conflicts with the system package manager.</p>
+
+      <div class="df-block">
+        <div class="df-block-header">🐳 <span>Dockerfile</span> — lines 48–56</div>
+        <pre><code><span class="tok-cmt"># ---------- Python packages (PEP-668 safe) ----------</span>
+<span class="tok-instr">RUN</span> pip3 install <span class="tok-flag">--upgrade</span> pip <span class="tok-flag">--break-system-packages</span> &amp;&amp; \
+    pip3 install <span class="tok-flag">--break-system-packages</span> \
+        <span class="tok-str">"virtualenv==20.26.6"</span> \
+        <span class="tok-pkg">selinux</span> \
+        <span class="tok-pkg">requests</span> \
+        <span class="tok-str">"ruamel.yaml"</span> \
+        <span class="tok-pkg">bs4</span> &amp;&amp; \
+    pip3 cache purge</code></pre>
+      </div>
+
+      <div class="d-card">
+        <div class="d-card-title">What is PEP 668 and why does it matter?</div>
+        <div class="d-card-body">
+          PEP 668 (introduced in Python 3.11+) marks the system Python as "externally managed." If you try to <code>pip install</code> without a virtual environment on these systems, pip throws an error to prevent you from breaking system packages that apk also manages.<br><br>
+          <code>--break-system-packages</code> tells pip: "I know what I'm doing — install globally anyway." In a Docker CI image this is the right call: there's no user to protect, and we <em>want</em> the packages globally available to all pipeline steps.
+        </div>
+      </div>
+
+      <h3 style="margin-bottom:.75rem;">Installed Python packages</h3>
+      <table class="cmp-table">
+        <thead>
+          <tr><th>Package</th><th>Version</th><th>Why it's here</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>virtualenv</strong></td>
+            <td>==20.26.6 (pinned)</td>
+            <td>Create isolated Python envs inside pipeline jobs; pinned for reproducibility</td>
+          </tr>
+          <tr>
+            <td><strong>selinux</strong></td>
+            <td>latest</td>
+            <td>Python bindings for SELinux; needed by Ansible on SELinux-enabled hosts</td>
+          </tr>
+          <tr>
+            <td><strong>requests</strong></td>
+            <td>latest</td>
+            <td>HTTP client; most automation and release scripts depend on it</td>
+          </tr>
+          <tr>
+            <td><strong>ruamel.yaml</strong></td>
+            <td>latest</td>
+            <td>YAML parser that preserves comments and order; used for K8s manifest manipulation</td>
+          </tr>
+          <tr>
+            <td><strong>bs4 (BeautifulSoup4)</strong></td>
+            <td>latest</td>
+            <td>HTML parsing; useful for scraping release notes or parsing HTML reports in CI</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="key-insight">
+        <code>pip3 cache purge</code> at the end removes the pip download cache from the image layer. pip caches downloaded wheels to speed up future installs, but in a baked image there won't be any future installs — so the cache is pure waste.
+      </div>
+
+      <div class="d-card" style="margin-top:.75rem;">
+        <div class="d-card-title">Why is only <code>virtualenv</code> pinned?</div>
+        <div class="d-card-body">
+          <code>virtualenv</code> has had breaking API changes in the past. Pinning ensures that pipeline scripts calling <code>virtualenv</code> programmatically get predictable behaviour. Libraries like <code>requests</code> and <code>bs4</code> are much more stable across minor versions and benefit from receiving security patches automatically.
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 6. JFROG ── -->
+    <div class="d-panel" id="panel-jfrog">
+      <h2 style="margin-bottom:.5rem;">JFrog CLI Installation</h2>
+      <p style="margin-bottom:1.25rem;">The JFrog CLI (<code>jf</code>) is the command-line interface to Artifactory, Xray, Pipelines, and the broader JFrog Platform. It's installed via the official install script.</p>
+
+      <div class="df-block">
+        <div class="df-block-header">🐳 <span>Dockerfile</span> — lines 58–60</div>
+        <pre><code><span class="tok-cmt"># ---------- JFrog CLI (latest stable) ----------</span>
+<span class="tok-instr">RUN</span> curl <span class="tok-flag">-fL</span> <span class="tok-url">https://install-cli.jfrog.io</span> | sh &amp;&amp; \
+    jf <span class="tok-flag">--version</span></code></pre>
+      </div>
+
+      <div class="d-card">
+        <div class="d-card-title">What does <code>curl -fL https://install-cli.jfrog.io | sh</code> do?</div>
+        <div class="d-card-body">
+          <strong><code>-f</code></strong> — fail silently on HTTP errors (non-2xx status = exit code 22, not a silent empty script)<br>
+          <strong><code>-L</code></strong> — follow redirects (the URL redirects to the latest release script)<br>
+          <strong><code>| sh</code></strong> — pipes the downloaded shell script directly into <code>sh</code> for execution<br><br>
+          The JFrog install script auto-detects the target architecture (<code>linux-amd64</code>, <code>linux-arm64</code>, etc.), downloads the correct binary, and places it in <code>/usr/local/bin/jf</code>.
+        </div>
+      </div>
+
+      <div class="key-insight warn">
+        ⚠ <strong>Curl-to-shell:</strong> Piping a URL directly into <code>sh</code> is a common and convenient pattern, but it gives the script full control of the environment. For a CI base image this is generally acceptable (the script is from JFrog's own domain), but in security-sensitive environments you may want to download, verify the checksum, then execute.
+      </div>
+
+      <div class="d-card">
+        <div class="d-card-title">Why "latest stable" instead of a pinned version?</div>
+        <div class="d-card-body">
+          The commented-out lines at the top of the file hint at a JFrog Artifactory integration. JFrog CLI has strong backwards compatibility guarantees, and using latest-stable means the image automatically picks up bug fixes and new Artifactory API support. If strict reproducibility is needed, the install URL can accept a specific version: <code>https://releases.jfrog.io/artifactory/jfrog-cli/v2/[version]/jfrog-cli-linux-amd64/jf</code>.
+        </div>
+      </div>
+
+      <div class="d-card">
+        <div class="d-card-title">What can <code>jf</code> do in CI pipelines?</div>
+        <div class="d-card-body">
+          <span class="dbadge dbadge-green">jf rt upload</span> — push artifacts to Artifactory<br>
+          <span class="dbadge dbadge-green">jf rt download</span> — pull dependencies from Artifactory<br>
+          <span class="dbadge dbadge-blue">jf rt build-publish</span> — publish build info (dependency graph, env vars, timestamps)<br>
+          <span class="dbadge dbadge-amber">jf xr scan</span> — trigger Xray security scans<br>
+          <span class="dbadge dbadge-purple">jf c add</span> — register Artifactory server credentials (used in <code>entrypoint.sh</code>)
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 7. ENTRYPOINT ── -->
+    <div class="d-panel" id="panel-entrypoint">
+      <h2 style="margin-bottom:.5rem;">Workspace, Config &amp; Entrypoint</h2>
+      <p style="margin-bottom:1.25rem;">The final instructions set the working directory and configure the container entry point — currently partially commented out.</p>
+
+      <div class="df-block">
+        <div class="df-block-header">🐳 <span>Dockerfile</span> — lines 62–70</div>
+        <pre><code><span class="tok-cmt"># ---------- Workspace ----------</span>
+<span class="tok-instr">WORKDIR</span> <span class="tok-str">/</span>
+
+<span class="tok-cmt"># ---------- Config &amp; entrypoint ----------</span>
+<span class="tok-instr">COPY</span> settings.xml entrypoint.sh ./
+<span class="tok-instr">RUN</span> cp /settings.xml <span class="tok-str">"${M2_HOME}/conf/settings.xml"</span> &amp;&amp; \
+    chmod +x entrypoint.sh
+
+<span class="tok-instr">ENTRYPOINT</span> [<span class="tok-str">"./entrypoint.sh"</span>]</code></pre>
+      </div>
+
+      <div class="d-card">
+        <div class="d-card-title"><code>WORKDIR /</code></div>
+        <div class="d-card-body">
+          Sets the default working directory for subsequent <code>RUN</code>, <code>COPY</code>, <code>CMD</code>, and <code>ENTRYPOINT</code> instructions to the filesystem root <code>/</code>. This is unconventional (most images use <code>/app</code> or <code>/workspace</code>) but fine for a CI base image where pipeline jobs mount their workspace at runtime via volume mounts or GitLab's automatic clone path.
+        </div>
+      </div>
+
+      <h3 style="margin-top:1.5rem;margin-bottom:.75rem;">The <code>entrypoint.sh</code> script</h3>
+
+      <div class="df-block">
+        <div class="df-block-header">📜 <span>entrypoint.sh</span></div>
+        <pre><code><span class="tok-cmt">#!/bin/bash</span>
+
+jf c add gamesys.jfrog.io \
+  <span class="tok-flag">--interactive=false</span> \
+  <span class="tok-flag">--basic-auth-only</span> \
+  <span class="tok-flag">--url=</span><span class="tok-str">https://abcd.jfrog.io/</span> \
+  <span class="tok-flag">--user=</span><span class="tok-var">$JFROG_USER</span> \
+  <span class="tok-flag">--password=</span><span class="tok-var">$JFROG_TOKEN</span>
+
+exec "<span class="tok-var">$@</span>"</code></pre>
+      </div>
+
+      <div class="d-card">
+        <div class="d-card-title">What <code>jf c add</code> does</div>
+        <div class="d-card-body">
+          This registers an Artifactory server with the JFrog CLI config store. After this runs, all subsequent <code>jf</code> commands (upload, download, build-publish) automatically know how to authenticate against <code>gamesys.jfrog.io</code>.<br><br>
+          <span class="dbadge dbadge-blue">--interactive=false</span> — run non-interactively (required in CI)<br>
+          <span class="dbadge dbadge-amber">--basic-auth-only</span> — use username+password (not API key or access token)<br>
+          <span class="dbadge dbadge-green">--user / --password</span> — read from runtime environment variables
+        </div>
+      </div>
+
+      <div class="d-card">
+        <div class="d-card-title">The <code>exec "$@"</code> pattern</div>
+        <div class="d-card-body">
+          <code>exec "$@"</code> replaces the shell process with whatever command was passed to <code>docker run</code>. This means:<br><br>
+          • The entrypoint runs setup (JFrog auth), then hands off cleanly<br>
+          • The main process gets PID 1 (critical for correct signal handling in containers)<br>
+          • You can still override the command: <code>docker run ci-base mvn clean package</code>
+        </div>
+      </div>
+
+      <div class="key-insight info">
+        The <code>ENTRYPOINT</code> and <code>COPY</code> commands enable the auto-auth behaviour, which is vital when the image becomes a properly configured CI base in a real GitLab/Jenkins environment.
+      </div>
+
+      <h3 style="margin-top:1.5rem;margin-bottom:.75rem;">Understanding <code>settings.xml</code></h3>
+      <div class="df-block">
+        <div class="df-block-header">📜 <span>settings.xml</span> — Maven Config &amp; Credentials</div>
+        <pre><code><span class="tok-instr">&lt;server&gt;</span>
+  <span class="tok-instr">&lt;id&gt;</span>server-1<span class="tok-instr">&lt;/id&gt;</span>
+  <span class="tok-instr">&lt;username&gt;</span><span class="tok-var">${env.JFROG_USER}</span><span class="tok-instr">&lt;/username&gt;</span>
+  <span class="tok-instr">&lt;password&gt;</span><span class="tok-var">${env.JFROG_TOKEN}</span><span class="tok-instr">&lt;/password&gt;</span>
+<span class="tok-instr">&lt;/server&gt;</span>
+<span class="tok-cmt">&lt;!-- ... --&gt;</span>
+<span class="tok-instr">&lt;repository&gt;</span>
+  <span class="tok-instr">&lt;id&gt;</span>server-1<span class="tok-instr">&lt;/id&gt;</span>
+  <span class="tok-instr">&lt;url&gt;</span><span class="tok-str">https://abcd.jfrog.io/artifactory/server-1</span><span class="tok-instr">&lt;/url&gt;</span>
+<span class="tok-instr">&lt;/repository&gt;</span></code></pre>
+      </div>
+
+      <div class="d-card">
+        <div class="d-card-title">Servers vs. Repositories (The ID Mapping)</div>
+        <div class="d-card-body">
+          Our updated file maps generic endpoints (<code>server-1</code>, <code>server-2</code>, <code>gitlab-server</code>). The core concept relies on matching IDs: The <code>&lt;server&gt;</code> block acts as a vault containing authentication credentials injected dynamically by the CI runner (via <code>JFROG_USER</code>/<code>CI_JOB_TOKEN</code>). When Maven accesses a <code>&lt;repository&gt;</code> sharing the exact same <code>&lt;id&gt;</code>, it securely attaches those credentials.
+        </div>
+      </div>
+
+      <div class="d-card">
+        <div class="d-card-title">Repositories vs. Plugin Repositories</div>
+        <div class="d-card-body">
+          Maven strictly separates <strong>Application Dependencies</strong> (libraries fetched by <code>&lt;repositories&gt;</code> to run your app) from <strong>Build Tools</strong> (compilers/execution plugins fetched by <code>&lt;pluginRepositories&gt;</code>). Even if both sets of files live natively on your single Artifactory <code>abcd.jfrog.io</code> instance, you must redeclare identical URLs into both XML blocks to grant Maven permission to access them for their respective pipeline purposes.
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 8. FULL FILE ── -->
+    <div class="d-panel" id="panel-full">
+      <h2 style="margin-bottom:.5rem;">The Complete Dockerfile</h2>
+      <p style="margin-bottom:1.25rem;">Here's the entire file annotated inline for quick reference.</p>
+
+      <div class="df-block">
+        <div class="df-block-header">🐳 <span>docker-ci-base/dockerfile</span> — full file (70 lines)</div>
+        <pre><code><span class="tok-cmt"># ── Base: Alpine-based Docker CLI image (v27) ──────────────────────────────</span>
+<span class="tok-instr">FROM</span> <span class="tok-str">docker:27-cli</span>
+
+<span class="tok-cmt"># Credentials passed at RUNTIME only — never bake secrets into images</span>
+<span class="tok-instr">ARG</span> JFROG_USER
+<span class="tok-instr">ARG</span> JFROG_TOKEN
+<span class="tok-instr">ENV</span> JFROG_USER=<span class="tok-var">${JFROG_USER}</span> \
+    JFROG_TOKEN=<span class="tok-var">${JFROG_TOKEN}</span>
+
+<span class="tok-cmt"># ── Versions — single source of truth ─────────────────────────────────────</span>
+<span class="tok-instr">ENV</span> <span class="tok-var">MAVEN_VERSION</span>=<span class="tok-str">3.9.11</span> \
+    <span class="tok-var">JAVA_VERSION</span>=<span class="tok-str">21</span> \
+    <span class="tok-var">M2_HOME</span>=<span class="tok-str">/opt/maven</span> \
+    <span class="tok-var">MAVEN_HOME</span>=<span class="tok-str">/opt/maven</span>
+
+<span class="tok-instr">ENV</span> <span class="tok-var">PATH</span>=<span class="tok-str">"${PATH}:${M2_HOME}/bin"</span>   <span class="tok-cmt"># adds /opt/maven/bin to PATH</span>
+
+<span class="tok-cmt"># ── System packages ────────────────────────────────────────────────────────</span>
+<span class="tok-cmt"># One RUN = one layer. Upgrade first, then add. --no-cache keeps image lean.</span>
+<span class="tok-instr">RUN</span> apk upgrade <span class="tok-flag">--no-cache</span> &amp;&amp; \
+    apk add <span class="tok-flag">--no-cache</span> \
+        <span class="tok-pkg">linux-headers musl-dev</span>          <span class="tok-cmt"># compile native C extensions against musl</span>
+        <span class="tok-pkg">python3 python3-dev py3-pip</span>      <span class="tok-cmt"># Python 3 + pip</span>
+        <span class="tok-pkg">gcc curl bash git wget</span>           <span class="tok-cmt"># essential build / transfer tools</span>
+        <span class="tok-pkg">ca-certificates</span>                 <span class="tok-cmt"># TLS trust store for HTTPS requests</span>
+        <span class="tok-pkg">rpm ansible jq yq</span>               <span class="tok-cmt"># RPM builds, infra automation, JSON/YAML</span>
+        <span class="tok-pkg">openjdk${JAVA_VERSION}</span>           <span class="tok-cmt"># Java 21 (resolves env var at build time)</span>
+        <span class="tok-pkg">npm</span> &amp;&amp;                           <span class="tok-cmt"># Node.js package manager</span>
+    java <span class="tok-flag">-version</span>                        <span class="tok-cmt"># smoke test ─ fail fast if Java broken</span>
+
+<span class="tok-cmt"># ── Apache Maven 3.9.11 ────────────────────────────────────────────────────</span>
+<span class="tok-cmt"># Download from official archive, extract, install to $M2_HOME, clean up.</span>
+<span class="tok-instr">RUN</span> wget <span class="tok-flag">-q</span> <span class="tok-str">"https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz"</span> \
+        <span class="tok-flag">-O</span> /tmp/maven.tar.gz &amp;&amp; \
+    tar <span class="tok-flag">-xzf</span> /tmp/maven.tar.gz <span class="tok-flag">-C</span> /tmp &amp;&amp; \
+    mv <span class="tok-str">"/tmp/apache-maven-${MAVEN_VERSION}"</span> <span class="tok-str">"${M2_HOME}"</span> &amp;&amp; \
+    rm /tmp/maven.tar.gz &amp;&amp;              <span class="tok-cmt"># must rm in same RUN to save space</span>
+    mvn <span class="tok-flag">--version</span>                        <span class="tok-cmt"># smoke test</span>
+
+<span class="tok-cmt"># ── Python packages (PEP-668 safe) ────────────────────────────────────────</span>
+<span class="tok-instr">RUN</span> pip3 install <span class="tok-flag">--upgrade</span> pip <span class="tok-flag">--break-system-packages</span> &amp;&amp; \
+    pip3 install <span class="tok-flag">--break-system-packages</span> \
+        <span class="tok-str">"virtualenv==20.26.6"</span>            <span class="tok-cmt"># pinned for API stability</span>
+        <span class="tok-pkg">selinux requests</span>                <span class="tok-cmt"># Ansible SELinux + HTTP client</span>
+        <span class="tok-str">"ruamel.yaml"</span> <span class="tok-pkg">bs4</span> &amp;&amp;             <span class="tok-cmt"># YAML (comment-preserving) + HTML parser</span>
+    pip3 cache purge                     <span class="tok-cmt"># remove cached wheels from image</span>
+
+<span class="tok-cmt"># ── JFrog CLI (latest stable) ─────────────────────────────────────────────</span>
+<span class="tok-instr">RUN</span> curl <span class="tok-flag">-fL</span> <span class="tok-url">https://install-cli.jfrog.io</span> | sh &amp;&amp; \
+    jf <span class="tok-flag">--version</span>                         <span class="tok-cmt"># smoke test</span>
+
+<span class="tok-cmt"># ── Workspace ─────────────────────────────────────────────────────────────</span>
+<span class="tok-instr">WORKDIR</span> <span class="tok-str">/</span>
+
+<span class="tok-cmt"># ── Config &amp; entrypoint ───────────────────────────────────────────────────</span>
+<span class="tok-instr">COPY</span> settings.xml entrypoint.sh ./
+<span class="tok-instr">RUN</span> cp /settings.xml <span class="tok-str">"${M2_HOME}/conf/settings.xml"</span> &amp;&amp; \
+    chmod +x entrypoint.sh
+<span class="tok-instr">ENTRYPOINT</span> [<span class="tok-str">"./entrypoint.sh"</span>]</code></pre>
+      </div>
+
+      <div class="key-insight" style="margin-top:1rem;">
+        Every <code>RUN</code> block ends with a smoke-test command (<code>java -version</code>, <code>mvn --version</code>, <code>jf --version</code>). This is the fastest way to catch a broken install: the build fails loudly at the right step instead of producing a silently broken image.
+      </div>
+    </div>
+
+    <!-- ── 9. FULL SETTINGS.XML ── -->
+    <div class="d-panel" id="panel-full-settings">
+      <h2 style="margin-bottom:.5rem;">The Complete settings.xml</h2>
+      <p style="margin-bottom:1.25rem;">Here is the custom Maven configuration file that orchestrates server mapping, mirror intercepts, and dual repository bindings for CI.</p>
+
+      <div class="df-block">
+        <div class="df-block-header">📜 <span>docker-ci-base/settings.xml</span> — full file</div>
+        <pre><code><span class="tok-cmt">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="tok-instr">&lt;settings</span> <span class="tok-str">xmlns</span>=<span class="tok-str">"http://maven.apache.org/SETTINGS/1.0.0"</span>
+          <span class="tok-str">xmlns:xsi</span>=<span class="tok-str">"http://www.w3.org/2001/XMLSchema-instance"</span>
+          <span class="tok-str">xsi:schemaLocation</span>=<span class="tok-str">"http://maven.apache.org/SETTINGS/1.0.0 http://maven.apache.org/xsd/settings-1.0.0.xsd"</span><span class="tok-instr">&gt;</span>
+    <span class="tok-instr">&lt;servers&gt;</span>
+        <span class="tok-instr">&lt;server&gt;</span>
+            <span class="tok-instr">&lt;id&gt;</span>server-1<span class="tok-instr">&lt;/id&gt;</span>
+            <span class="tok-instr">&lt;username&gt;</span><span class="tok-var">${env.JFROG_USER}</span><span class="tok-instr">&lt;/username&gt;</span>
+            <span class="tok-instr">&lt;password&gt;</span><span class="tok-var">${env.JFROG_TOKEN}</span><span class="tok-instr">&lt;/password&gt;</span>
+        <span class="tok-instr">&lt;/server&gt;</span>
+        <span class="tok-instr">&lt;server&gt;</span>
+            <span class="tok-instr">&lt;id&gt;</span>server-2<span class="tok-instr">&lt;/id&gt;</span>
+            <span class="tok-instr">&lt;username&gt;</span><span class="tok-var">${env.JFROG_USER}</span><span class="tok-instr">&lt;/username&gt;</span>
+            <span class="tok-instr">&lt;password&gt;</span><span class="tok-var">${env.JFROG_TOKEN}</span><span class="tok-instr">&lt;/password&gt;</span>
+        <span class="tok-instr">&lt;/server&gt;</span>
+        <span class="tok-instr">&lt;server&gt;</span>
+            <span class="tok-instr">&lt;id&gt;</span>server-3<span class="tok-instr">&lt;/id&gt;</span>
+            <span class="tok-instr">&lt;username&gt;</span><span class="tok-var">${env.JFROG_USER}</span><span class="tok-instr">&lt;/username&gt;</span>
+            <span class="tok-instr">&lt;password&gt;</span><span class="tok-var">${env.JFROG_TOKEN}</span><span class="tok-instr">&lt;/password&gt;</span>
+        <span class="tok-instr">&lt;/server&gt;</span>
+        <span class="tok-instr">&lt;server&gt;</span>
+            <span class="tok-instr">&lt;id&gt;</span>gitlab-server<span class="tok-instr">&lt;/id&gt;</span>
+            <span class="tok-instr">&lt;configuration&gt;</span>
+                <span class="tok-instr">&lt;httpHeaders&gt;</span>
+                    <span class="tok-instr">&lt;property&gt;</span>
+                        <span class="tok-instr">&lt;name&gt;</span>Job-Token<span class="tok-instr">&lt;/name&gt;</span>
+                        <span class="tok-instr">&lt;value&gt;</span><span class="tok-var">${env.CI_JOB_TOKEN}</span><span class="tok-instr">&lt;/value&gt;</span>
+                    <span class="tok-instr">&lt;/property&gt;</span>
+                <span class="tok-instr">&lt;/httpHeaders&gt;</span>
+            <span class="tok-instr">&lt;/configuration&gt;</span>
+        <span class="tok-instr">&lt;/server&gt;</span>
+    <span class="tok-instr">&lt;/servers&gt;</span>
+    <span class="tok-instr">&lt;activeProfiles&gt;</span>
+        <span class="tok-instr">&lt;activeProfile&gt;</span>default-profile<span class="tok-instr">&lt;/activeProfile&gt;</span>
+    <span class="tok-instr">&lt;/activeProfiles&gt;</span>
+    <span class="tok-instr">&lt;mirrors&gt;</span>
+        <span class="tok-instr">&lt;mirror&gt;</span>
+            <span class="tok-instr">&lt;id&gt;</span>server-3<span class="tok-instr">&lt;/id&gt;</span>
+            <span class="tok-instr">&lt;name&gt;</span>Maven Repository Manager running on repo.mycompany.com<span class="tok-instr">&lt;/name&gt;</span>
+            <span class="tok-instr">&lt;url&gt;</span><span class="tok-str">https://abcd.jfrog.io/artifactory/server-3</span><span class="tok-instr">&lt;/url&gt;</span>
+            <span class="tok-instr">&lt;mirrorOf&gt;</span><span class="tok-pkg">external:*,!server-1,!gitlab-server</span><span class="tok-instr">&lt;/mirrorOf&gt;</span>
+        <span class="tok-instr">&lt;/mirror&gt;</span>
+    <span class="tok-instr">&lt;/mirrors&gt;</span>
+    <span class="tok-instr">&lt;profiles&gt;</span>
+        <span class="tok-instr">&lt;profile&gt;</span>
+            <span class="tok-instr">&lt;id&gt;</span>default-profile<span class="tok-instr">&lt;/id&gt;</span>
+            <span class="tok-instr">&lt;repositories&gt;</span>
+                <span class="tok-instr">&lt;repository&gt;</span>
+                    <span class="tok-instr">&lt;id&gt;</span>server-1<span class="tok-instr">&lt;/id&gt;</span>
+                    <span class="tok-instr">&lt;name&gt;</span>Roxor Games Platform build repository<span class="tok-instr">&lt;/name&gt;</span>
+                    <span class="tok-instr">&lt;url&gt;</span><span class="tok-str">https://abcd.jfrog.io/artifactory/server-1</span><span class="tok-instr">&lt;/url&gt;</span>
+                    <span class="tok-instr">&lt;releases&gt;</span>
+                        <span class="tok-instr">&lt;enabled&gt;</span>true<span class="tok-instr">&lt;/enabled&gt;</span>
+                        <span class="tok-instr">&lt;updatePolicy&gt;</span>always<span class="tok-instr">&lt;/updatePolicy&gt;</span>
+                    <span class="tok-instr">&lt;/releases&gt;</span>
+                <span class="tok-instr">&lt;/repository&gt;</span>
+                <span class="tok-instr">&lt;repository&gt;</span>
+                    <span class="tok-instr">&lt;id&gt;</span>server-2<span class="tok-instr">&lt;/id&gt;</span>
+                    <span class="tok-instr">&lt;name&gt;</span>Roxor Games Platform build repository - dev<span class="tok-instr">&lt;/name&gt;</span>
+                    <span class="tok-instr">&lt;url&gt;</span><span class="tok-str">https://abcd.jfrog.io/artifactory/server-2</span><span class="tok-instr">&lt;/url&gt;</span>
+                    <span class="tok-instr">&lt;releases&gt;</span>
+                        <span class="tok-instr">&lt;enabled&gt;</span>true<span class="tok-instr">&lt;/enabled&gt;</span>
+                        <span class="tok-instr">&lt;updatePolicy&gt;</span>always<span class="tok-instr">&lt;/updatePolicy&gt;</span>
+                    <span class="tok-instr">&lt;/releases&gt;</span>
+                <span class="tok-instr">&lt;/repository&gt;</span>
+                <span class="tok-instr">&lt;repository&gt;</span>
+                    <span class="tok-instr">&lt;id&gt;</span>gitlab-server<span class="tok-instr">&lt;/id&gt;</span>
+                    <span class="tok-instr">&lt;url&gt;</span><span class="tok-str">https://gitlab.com/api/v4/groups/12345/-/packages/maven</span><span class="tok-instr">&lt;/url&gt;</span>
+                <span class="tok-instr">&lt;/repository&gt;</span>
+            <span class="tok-instr">&lt;/repositories&gt;</span>
+            <span class="tok-instr">&lt;pluginRepositories&gt;</span>
+                <span class="tok-instr">&lt;pluginRepository&gt;</span>
+                    <span class="tok-instr">&lt;id&gt;</span>server-1<span class="tok-instr">&lt;/id&gt;</span>
+                    <span class="tok-instr">&lt;name&gt;</span>Roxor Games Platform build repository<span class="tok-instr">&lt;/name&gt;</span>
+                    <span class="tok-instr">&lt;url&gt;</span><span class="tok-str">https://abcd.jfrog.io/artifactory/server-1</span><span class="tok-instr">&lt;/url&gt;</span>
+                <span class="tok-instr">&lt;/pluginRepository&gt;</span>
+                <span class="tok-instr">&lt;pluginRepository&gt;</span>
+                    <span class="tok-instr">&lt;id&gt;</span>server-2<span class="tok-instr">&lt;/id&gt;</span>
+                    <span class="tok-instr">&lt;name&gt;</span>Roxor Games Platform build repository - dev<span class="tok-instr">&lt;/name&gt;</span>
+                    <span class="tok-instr">&lt;url&gt;</span><span class="tok-str">https://abcd.jfrog.io/artifactory/server-2</span><span class="tok-instr">&lt;/url&gt;</span>
+                <span class="tok-instr">&lt;/pluginRepository&gt;</span>
+            <span class="tok-instr">&lt;/pluginRepositories&gt;</span>
+        <span class="tok-instr">&lt;/profile&gt;</span>
+    <span class="tok-instr">&lt;/profiles&gt;</span>
+<span class="tok-instr">&lt;/settings&gt;</span></code></pre>
+      </div>
+    </div>
+
+    <div class="post-nav">
+      <a href="../index.html">← All posts</a>
+    </div>
+
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <span class="footer-copy">© 2026 rishcloudops. Built with HTML &amp; CSS.</span>
+      <div class="footer-links">
+        <a href="https://github.com/rikkhanna" target="_blank">GitHub</a>
+        <a href="mailto:riishabh.khanna@gmail.com">Email</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+function show(id) {
+  document.querySelectorAll('.d-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.post-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + id).classList.add('active');
+  const tabs = ['overview','base','packages','maven','python','jfrog','entrypoint','full','full-settings'];
+  document.querySelectorAll('.post-tab')[tabs.indexOf(id)].classList.add('active');
+}
+</script>
+
+</body>
+</html>
+
