@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>5 Senior DevOps Interview Questions — Answered With Real Architecture — rishcloudops</title>
+  <meta name="description" content="Deep-dive answers to five senior DevOps interview questions: multi-region architecture, multi-cloud migration, IaC structure, deployment strategies, and build vs buy.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #09090f;
+      --sdbg:     #0c0c15;
+      --s1:       #111120;
+      --s2:       #18182a;
+      --border:   rgba(255,255,255,.07);
+      --border2:  rgba(255,255,255,.11);
+      --accent:   #c8ff57;
+      --adim:     rgba(200,255,87,.18);
+      --blue:     #818cf8;
+      --bdim:     rgba(129,140,248,.18);
+      --amber:    #fbbf24;
+      --red:      #f87171;
+      --purple:   #c084fc;
+      --text:     #e2e2f0;
+      --muted:    #6b6b8a;
+      --font:     'Inter', -apple-system, sans-serif;
+      --mono:     'JetBrains Mono', 'Fira Code', monospace;
+      --sw:       252px;
+      --rad:      8px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 15px;
+      line-height: 1.6;
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ────── SIDEBAR ────── */
+    .sidebar {
+      width: var(--sw);
+      min-height: 100vh;
+      background: var(--sdbg);
+      border-right: 1px solid var(--border);
+      position: fixed;
+      top: 0; left: 0;
+      display: flex;
+      flex-direction: column;
+      z-index: 100;
+      overflow-y: auto;
+    }
+
+    .sb-brand {
+      padding: 1.25rem 1.25rem 1.1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .sb-brand a {
+      font-family: var(--mono);
+      font-size: .7rem;
+      color: var(--muted);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: .35rem;
+      transition: color .15s;
+    }
+    .sb-brand a:hover { color: var(--accent); }
+    .sb-brand a::before { content: '←'; font-size: .75rem; }
+
+    .sb-post-title {
+      padding: .9rem 1.25rem .75rem;
+      font-size: .7rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.4;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sb-label {
+      padding: .9rem 1.25rem .3rem;
+      font-family: var(--mono);
+      font-size: .6rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--muted);
+    }
+
+    .sb-nav { flex: 1; }
+
+    .sb-link {
+      display: flex;
+      align-items: flex-start;
+      gap: .65rem;
+      padding: .6rem 1.25rem;
+      text-decoration: none;
+      border-left: 2px solid transparent;
+      transition: background .15s, border-color .15s;
+      position: relative;
+    }
+    .sb-link:hover { background: rgba(255,255,255,.02); }
+    .sb-link.is-active {
+      background: rgba(200,255,87,.04);
+      border-left-color: var(--accent);
+    }
+    .sb-link-n {
+      font-family: var(--mono);
+      font-size: .6rem;
+      color: var(--muted);
+      margin-top: 2px;
+      flex-shrink: 0;
+      min-width: 22px;
+    }
+    .sb-link.is-active .sb-link-n { color: var(--accent); }
+    .sb-link-t {
+      font-size: .72rem;
+      line-height: 1.4;
+      color: var(--muted);
+    }
+    .sb-link.is-active .sb-link-t { color: var(--text); }
+
+    .sb-divider { height: 1px; background: var(--border); margin: .5rem 0; }
+
+    .sb-progress {
+      padding: 1rem 1.25rem;
+      border-top: 1px solid var(--border);
+      margin-top: auto;
+    }
+    .sb-prog-label {
+      font-family: var(--mono);
+      font-size: .6rem;
+      color: var(--muted);
+      margin-bottom: .4rem;
+    }
+    .sb-prog-bar {
+      height: 3px;
+      background: var(--border2);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .sb-prog-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width .3s;
+    }
+
+    /* ────── MAIN ────── */
+    .main {
+      margin-left: var(--sw);
+      flex: 1;
+      min-width: 0;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      padding: 4rem 3.5rem 3rem;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::after {
+      content: '';
+      position: absolute;
+      top: 0; right: 0;
+      width: 40%;
+      height: 100%;
+      background: radial-gradient(ellipse at top right, rgba(200,255,87,.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-eyebrow {
+      font-family: var(--mono);
+      font-size: .68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      color: var(--accent);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    .hero-eyebrow::before {
+      content: '';
+      width: 20px; height: 1px;
+      background: var(--accent);
+    }
+    .hero h1 {
+      font-size: 2.4rem;
+      font-weight: 800;
+      line-height: 1.18;
+      color: var(--text);
+      max-width: 640px;
+      margin-bottom: 1.1rem;
+    }
+    .hero h1 em { font-style: normal; color: var(--accent); }
+    .hero-sub {
+      font-size: .9rem;
+      color: var(--muted);
+      max-width: 520px;
+      line-height: 1.7;
+    }
+    .hero-meta {
+      display: flex;
+      gap: 1.5rem;
+      margin-top: 1.75rem;
+      font-family: var(--mono);
+      font-size: .68rem;
+      color: var(--muted);
+    }
+
+    /* overview cards */
+    .overview-section {
+      padding: 3rem 3.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .section-eyebrow {
+      font-family: var(--mono);
+      font-size: .65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--muted);
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+    }
+    .section-eyebrow::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    .ov-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: .75rem;
+    }
+    .ov-card {
+      background: var(--s1);
+      border: 1px solid var(--border);
+      border-radius: var(--rad);
+      padding: 1.25rem;
+      text-decoration: none;
+      display: block;
+      transition: border-color .15s, background .15s, transform .12s;
+    }
+    .ov-card:hover {
+      border-color: var(--adim);
+      background: var(--s2);
+      transform: translateY(-2px);
+    }
+    .ov-n {
+      font-family: var(--mono);
+      font-size: .62rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: .35rem;
+    }
+    .ov-t {
+      font-size: .82rem;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.4;
+      margin-bottom: .6rem;
+    }
+    .ov-chips { display: flex; gap: 4px; flex-wrap: wrap; }
+
+    /* ────── QUESTION SECTIONS ────── */
+    .q-section {
+      padding: 4rem 3.5rem;
+      border-bottom: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+    .q-section::before {
+      content: attr(data-n);
+      position: absolute;
+      top: -1.5rem; right: 2rem;
+      font-family: var(--mono);
+      font-size: 9rem;
+      font-weight: 900;
+      color: rgba(255,255,255,.025);
+      line-height: 1;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .q-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      font-family: var(--mono);
+      font-size: .65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--accent);
+      background: rgba(200,255,87,.07);
+      border: 1px solid rgba(200,255,87,.2);
+      border-radius: 4px;
+      padding: 3px 9px;
+      margin-bottom: .9rem;
+    }
+
+    .q-section h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.3;
+      max-width: 680px;
+      margin-bottom: .5rem;
+    }
+    .q-goal {
+      font-size: .78rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      margin-bottom: 1.1rem;
+    }
+    .q-chips { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 1.5rem; }
+
+    /* chips */
+    .chip {
+      font-family: var(--mono);
+      font-size: .63rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      border: 1px solid;
+      font-weight: 500;
+    }
+    .chip-g { color: var(--accent); border-color: rgba(200,255,87,.3); background: rgba(200,255,87,.07); }
+    .chip-b { color: var(--blue);   border-color: rgba(129,140,248,.3); background: rgba(129,140,248,.07); }
+    .chip-a { color: var(--amber);  border-color: rgba(251,191,36,.3);  background: rgba(251,191,36,.07); }
+    .chip-r { color: var(--red);    border-color: rgba(248,113,113,.3); background: rgba(248,113,113,.07); }
+    .chip-p { color: var(--purple); border-color: rgba(192,132,252,.3); background: rgba(192,132,252,.07); }
+
+    /* callouts */
+    .callout {
+      border-radius: var(--rad);
+      padding: .9rem 1.1rem;
+      margin: 1rem 0;
+      font-size: .82rem;
+      line-height: 1.65;
+    }
+    .callout-test {
+      background: rgba(129,140,248,.07);
+      border: 1px solid rgba(129,140,248,.2);
+      color: var(--text);
+    }
+    .callout-test strong { color: var(--blue); }
+    .callout-tldr {
+      background: rgba(200,255,87,.05);
+      border: 1px solid rgba(200,255,87,.15);
+    }
+    .callout-tldr-label {
+      font-family: var(--mono);
+      font-size: .62rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--accent);
+      margin-bottom: .45rem;
+    }
+    .callout-tldr ul { padding-left: 1.1rem; color: var(--text); margin: 0; }
+    .callout-tldr li { margin-bottom: .2rem; }
+    .callout-tldr li::marker { color: var(--accent); }
+    .callout-warn {
+      background: rgba(251,191,36,.06);
+      border: 1px solid rgba(251,191,36,.2);
+      color: var(--text);
+    }
+    .callout-warn strong { color: var(--amber); }
+    .callout-danger {
+      background: rgba(248,113,113,.06);
+      border-left: 3px solid var(--red);
+      border-top: 1px solid rgba(248,113,113,.15);
+      border-right: 1px solid rgba(248,113,113,.15);
+      border-bottom: 1px solid rgba(248,113,113,.15);
+      color: var(--text);
+    }
+    .callout-insight {
+      border-left: 3px solid var(--accent);
+      background: rgba(200,255,87,.04);
+      color: var(--text);
+      padding: .75rem 1rem;
+      border-radius: 0 6px 6px 0;
+      margin: 1rem 0;
+      font-size: .82rem;
+    }
+
+    /* section dividers */
+    .sdiv {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      margin: 2rem 0 .9rem;
+    }
+    .sdiv-n {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      border: 1px solid var(--adim);
+      background: rgba(200,255,87,.07);
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--mono);
+      font-size: .58rem;
+      font-weight: 700;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+    .sdiv-label {
+      font-family: var(--mono);
+      font-size: .65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--muted);
+    }
+    .sdiv-line { flex: 1; height: 1px; background: var(--border); }
+
+    /* cards */
+    .card {
+      background: var(--s1);
+      border: 1px solid var(--border);
+      border-radius: var(--rad);
+      padding: 1.1rem 1.25rem;
+      margin-bottom: .75rem;
+    }
+    .card-t {
+      font-size: .875rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: .3rem;
+    }
+    .card-b { font-size: .81rem; color: var(--muted); line-height: 1.7; }
+    .card-b code {
+      font-family: var(--mono);
+      background: rgba(255,255,255,.07);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: .74rem;
+      color: var(--accent);
+    }
+    .card-b strong { color: var(--text); }
+
+    /* code blocks */
+    .codeblock {
+      background: var(--s1);
+      border: 1px solid var(--border);
+      border-radius: var(--rad);
+      margin: 1rem 0;
+      overflow: hidden;
+    }
+    .codeblock-hdr {
+      background: var(--s2);
+      border-bottom: 1px solid var(--border);
+      padding: .4rem 1rem;
+      font-family: var(--mono);
+      font-size: .65rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    .codeblock-hdr span { color: var(--accent); }
+    .codeblock pre {
+      padding: 1rem 1.25rem;
+      overflow-x: auto;
+      margin: 0;
+      line-height: 1.85;
+    }
+    .codeblock code { font-family: var(--mono); font-size: .78rem; color: var(--text); }
+
+    /* syntax */
+    .tk { color: var(--amber); font-weight: 600; }
+    .tv { color: var(--accent); }
+    .tc { color: var(--muted); font-style: italic; }
+    .ts { color: var(--red); }
+    .ti { color: var(--blue); font-weight: 600; }
+    .td { color: var(--purple); }
+
+    /* dir tree */
+    .dirtree {
+      font-family: var(--mono);
+      font-size: .77rem;
+      line-height: 1.9;
+      background: var(--s1);
+      border: 1px solid var(--border);
+      border-radius: var(--rad);
+      padding: 1.25rem 1.5rem;
+      margin: 1rem 0;
+      overflow-x: auto;
+    }
+
+    /* 3-col compare */
+    .cmp-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: .75rem;
+      margin: 1rem 0;
+    }
+    @media(max-width:680px) { .cmp-grid { grid-template-columns: 1fr; } }
+    .cmp-card {
+      background: var(--s1);
+      border-radius: var(--rad);
+      padding: 1.1rem 1rem;
+      border-top: 2px solid;
+      border-bottom: 1px solid var(--border);
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+    }
+    .cmp-card.c-blue   { border-top-color: var(--blue); }
+    .cmp-card.c-amber  { border-top-color: var(--amber); }
+    .cmp-card.c-green  { border-top-color: var(--accent); }
+    .cmp-t { font-weight: 700; font-family: var(--mono); font-size: .8rem; margin-bottom: .5rem; }
+    .cmp-card.c-blue  .cmp-t { color: var(--blue); }
+    .cmp-card.c-amber .cmp-t { color: var(--amber); }
+    .cmp-card.c-green .cmp-t { color: var(--accent); }
+    .cmp-card ul { margin: 0; padding-left: 1rem; font-size: .75rem; color: var(--muted); line-height: 1.75; }
+
+    /* 2-col split */
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin: .75rem 0; }
+    @media(max-width:580px) { .split { grid-template-columns: 1fr; } }
+    .split-card {
+      background: var(--s1);
+      border: 1px solid var(--border);
+      border-radius: var(--rad);
+      padding: 1rem 1.1rem;
+    }
+    .split-card h4 { font-size: .8rem; font-weight: 700; margin-bottom: .5rem; font-family: var(--mono); }
+    .split-card.build h4 { color: var(--amber); }
+    .split-card.buy   h4 { color: var(--blue); }
+    .split-card ul { margin: 0; padding-left: 1rem; font-size: .77rem; color: var(--muted); line-height: 1.7; }
+
+    /* table */
+    .dtable { width: 100%; border-collapse: collapse; font-size: .78rem; margin: 1rem 0; }
+    .dtable th {
+      text-align: left; font-family: var(--mono); font-size: .63rem;
+      text-transform: uppercase; letter-spacing: .07em; color: var(--muted);
+      padding: 7px 10px; border-bottom: 1px solid var(--border);
+    }
+    .dtable td {
+      padding: 9px 10px; border-bottom: 1px solid var(--border);
+      color: var(--text); vertical-align: top; line-height: 1.5;
+    }
+    .dtable td:not(:first-child) { color: var(--muted); font-size: .75rem; }
+    .dtable tr:last-child td { border-bottom: none; }
+
+    /* phase badges */
+    .phases { display: flex; gap: .45rem; flex-wrap: wrap; margin: 1rem 0 .5rem; }
+    .pb {
+      font-family: var(--mono); font-size: .65rem; font-weight: 600;
+      padding: 3px 10px; border-radius: 4px; border: 1px solid;
+    }
+    .pb-a { color: var(--amber); border-color: rgba(251,191,36,.3); background: rgba(251,191,36,.07); }
+    .pb-g { color: var(--accent); border-color: rgba(200,255,87,.3); background: rgba(200,255,87,.07); }
+    .pb-b { color: var(--blue); border-color: rgba(129,140,248,.3); background: rgba(129,140,248,.07); }
+
+    /* arch image */
+    .arch-img {
+      width: 100%; border-radius: var(--rad);
+      border: 1px solid var(--border); margin: 1.25rem 0; display: block;
+    }
+    .arch-cap {
+      font-family: var(--mono); font-size: .65rem; color: var(--muted);
+      text-align: center; margin-top: -.5rem; margin-bottom: 1.25rem;
+    }
+
+    /* ── Footer ── */
+    .site-footer {
+      margin-left: var(--sw);
+      border-top: 1px solid var(--border);
+      padding: 1.75rem 3.5rem;
+      font-size: .78rem;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: .75rem;
+    }
+    .site-footer a { color: var(--muted); text-decoration: none; }
+    .site-footer a:hover { color: var(--accent); }
+    .footer-links { display: flex; gap: 1.25rem; }
+
+    /* ── Mobile ── */
+    .mob-nav-bar {
+      display: none;
+      position: fixed; top: 0; left: 0; right: 0;
+      height: 48px;
+      background: var(--sdbg);
+      border-bottom: 1px solid var(--border);
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 1.25rem;
+      z-index: 200;
+    }
+    .mob-logo { font-family: var(--mono); font-size: .7rem; color: var(--muted); text-decoration: none; }
+    .mob-logo:hover { color: var(--accent); }
+    .mob-menu-btn {
+      background: none; border: 1px solid var(--border); border-radius: 4px;
+      padding: 4px 8px; color: var(--muted); cursor: pointer; font-size: .75rem;
+    }
+
+    @media(max-width:860px) {
+      .sidebar { display: none; }
+      .sidebar.mob-open { display: flex; }
+      .mob-nav-bar { display: flex; }
+      .main { margin-left: 0; padding-top: 48px; }
+      .site-footer { margin-left: 0; }
+      .hero, .q-section, .overview-section { padding: 2.25rem 1.5rem; }
+      .hero h1 { font-size: 1.75rem; }
+      .cmp-grid { grid-template-columns: 1fr; }
+      .split { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Mobile top bar -->
+<div class="mob-nav-bar">
+  <a href="../index.html" class="mob-logo">← rishcloudops</a>
+  <button class="mob-menu-btn" onclick="toggleSidebar()">Menu</button>
+</div>
+
+<!-- ════════ SIDEBAR ════════ -->
+<aside class="sidebar" id="sidebar">
+  <div class="sb-brand">
+    <a href="../index.html">All posts</a>
+  </div>
+  <div class="sb-post-title">5 Senior DevOps Interview Questions</div>
+
+  <nav class="sb-nav">
+    <div class="sb-label">Contents</div>
+
+    <a href="#overview" class="sb-link is-active" data-section="overview">
+      <span class="sb-link-n">00</span>
+      <span class="sb-link-t">Overview</span>
+    </a>
+    <div class="sb-divider"></div>
+    <a href="#q1" class="sb-link" data-section="q1">
+      <span class="sb-link-n">Q1</span>
+      <span class="sb-link-t">Multi-Region Architecture</span>
+    </a>
+    <a href="#q2" class="sb-link" data-section="q2">
+      <span class="sb-link-n">Q2</span>
+      <span class="sb-link-t">Multi-Cloud Migration</span>
+    </a>
+    <a href="#q3" class="sb-link" data-section="q3">
+      <span class="sb-link-n">Q3</span>
+      <span class="sb-link-t">IaC Structure</span>
+    </a>
+    <a href="#q4" class="sb-link" data-section="q4">
+      <span class="sb-link-n">Q4</span>
+      <span class="sb-link-t">Deployment Strategies</span>
+    </a>
+    <a href="#q5" class="sb-link" data-section="q5">
+      <span class="sb-link-n">Q5</span>
+      <span class="sb-link-t">Build vs Buy</span>
+    </a>
+  </nav>
+
+  <div class="sb-progress">
+    <div class="sb-prog-label">Reading progress</div>
+    <div class="sb-prog-bar"><div class="sb-prog-fill" id="prog" style="width:0%"></div></div>
+  </div>
+</aside>
+
+<!-- ════════ MAIN ════════ -->
+<main class="main">
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-eyebrow">DevOps · Architecture · Interview</div>
+    <h1>5 Senior DevOps Questions — <em>Answered with Real Architecture</em></h1>
+    <p class="hero-sub">Each answer is structured the way you'd reason through it in a system design round: what the interviewer is actually testing, a TL;DR, a layered deep-dive, and the trade-offs that separate senior answers.</p>
+    <div class="hero-meta">
+      <span>📅 April 19, 2026</span>
+      <span>⏱ 20 min read</span>
+      <span>🏷 5 questions</span>
+    </div>
+  </section>
+
+  <!-- ────── OVERVIEW ────── -->
+  <section class="overview-section" id="overview">
+    <div class="section-eyebrow">In this post</div>
+    <div class="ov-grid">
+      <a href="#q1" class="ov-card">
+        <div class="ov-n">Q1 ↗</div>
+        <div class="ov-t">Multi-Region Microservices Architecture</div>
+        <div class="ov-chips">
+          <span class="chip chip-b">EKS</span>
+          <span class="chip chip-b">Global Accelerator</span>
+          <span class="chip chip-a">DynamoDB</span>
+          <span class="chip chip-p">Kafka</span>
+        </div>
+      </a>
+      <a href="#q2" class="ov-card">
+        <div class="ov-n">Q2 ↗</div>
+        <div class="ov-t">Multi-Cloud / Hybrid Migration Planning</div>
+        <div class="ov-chips">
+          <span class="chip chip-a">Terraform</span>
+          <span class="chip chip-a">Risk Matrix</span>
+          <span class="chip chip-g">Anthos</span>
+        </div>
+      </a>
+      <a href="#q3" class="ov-card">
+        <div class="ov-n">Q3 ↗</div>
+        <div class="ov-t">IaC Module &amp; Environment Structure</div>
+        <div class="ov-chips">
+          <span class="chip chip-a">Terraform</span>
+          <span class="chip chip-g">Monorepo</span>
+          <span class="chip chip-b">S3 State</span>
+        </div>
+      </a>
+      <a href="#q4" class="ov-card">
+        <div class="ov-n">Q4 ↗</div>
+        <div class="ov-t">Blue/Green vs Canary vs Rolling</div>
+        <div class="ov-chips">
+          <span class="chip chip-b">Blue/Green</span>
+          <span class="chip chip-a">Canary</span>
+          <span class="chip chip-g">Rolling</span>
+        </div>
+      </a>
+      <a href="#q5" class="ov-card">
+        <div class="ov-n">Q5 ↗</div>
+        <div class="ov-t">Build Internal Tooling vs Managed Tools</div>
+        <div class="ov-chips">
+          <span class="chip chip-a">TCO</span>
+          <span class="chip chip-r">Compliance</span>
+          <span class="chip chip-g">Hybrid Approach</span>
+        </div>
+      </a>
+    </div>
+    <div class="callout-insight" style="margin-top:1.25rem;">
+      💡 <strong>How to read this:</strong> Each question follows the same structure — what the interviewer is testing → TL;DR → numbered deep-dive sections → real examples and trade-offs. Use the sidebar to jump between questions.
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════
+       Q1: MULTI-REGION
+  ══════════════════════════════════ -->
+  <section class="q-section" id="q1" data-n="01">
+    <div class="q-eyebrow">Question 1 · Architecture</div>
+    <h2>How would you design a scalable, fault-tolerant multi-region microservices architecture?</h2>
+    <div class="q-goal">Target: &lt;100ms global latency · 99.99% uptime · auto-scaling across regions</div>
+    <div class="q-chips">
+      <span class="chip chip-b">AWS Global Accelerator</span>
+      <span class="chip chip-b">EKS</span>
+      <span class="chip chip-b">Istio</span>
+      <span class="chip chip-a">DynamoDB Global Tables</span>
+      <span class="chip chip-p">Kafka</span>
+      <span class="chip chip-g">ArgoCD</span>
+    </div>
+
+    <div class="callout callout-test">
+      <strong>What the interviewer is testing:</strong> Whether you treat this as a layered systems problem. Traffic routing, compute scaling, data consistency, and observability all have distinct failure modes. Candidates who just list AWS services score lower than those who show they understand why each layer exists.
+    </div>
+
+    <div class="callout callout-tldr" style="margin-top:1rem;">
+      <div class="callout-tldr-label">TL;DR</div>
+      <ul>
+        <li>Global Accelerator routes to nearest healthy region via anycast over AWS backbone</li>
+        <li>Per-region EKS with HPA (5–100 pods) + cluster autoscaler (3–50 nodes at CPU &gt;70%)</li>
+        <li>Istio service mesh handles mTLS, retries, and circuit breaking between services</li>
+        <li>DynamoDB Global Tables + Kafka for async cross-region event replication</li>
+        <li>ArgoCD canary for version rollouts; Route 53 health checks for regional failover (&lt;60s)</li>
+        <li><strong>Trade-off:</strong> ~2× cost. Start with 2 regions, expand only with real traffic distribution data</li>
+      </ul>
+    </div>
+
+    <img src="./multi-region-architecture.png" alt="Multi-region architecture diagram" class="arch-img">
+    <div class="arch-cap">AWS Global Accelerator → Kong API Gateway → EKS (per region) · Kafka cross-region replication · Route 53 health checks</div>
+
+    <div class="sdiv"><span class="sdiv-n">1</span><span class="sdiv-label">Infrastructure Layer — Scalability</span><span class="sdiv-line"></span></div>
+    <div class="card">
+      <div class="card-t">Managed Kubernetes per region, provisioned via Terraform</div>
+      <div class="card-b">Deploy EKS clusters per region using Terraform for reproducible provisioning. Node groups autoscale from 3→50 nodes at CPU &gt;70%. Configure HPA per deployment: <code>minReplicas: 5, maxReplicas: 100</code>. The critical design constraint: <em>regions must be independently opaque to each other</em> — a failure in us-east-1 must not cascade to eu-west-1. This means zero synchronous cross-region calls in the critical path.</div>
+    </div>
+
+    <div class="sdiv"><span class="sdiv-n">2</span><span class="sdiv-label">Networking Layer — Minimize Latency</span><span class="sdiv-line"></span></div>
+    <div class="card">
+      <div class="card-t">Global Accelerator + Istio service mesh + Kong API Gateway</div>
+      <div class="card-b"><strong>AWS Global Accelerator</strong> publishes two static anycast IPs routing each user to the nearest healthy endpoint over AWS's private backbone (not public internet). Inside each region, <strong>Istio</strong> enforces inter-service mTLS, circuit breaking, and traffic shifting at the sidecar level — without application code changes. <strong>Kong</strong> caches responses in Redis, achieving &lt;50ms edge latency for repeated requests.<br><br>The service mesh is what most candidates skip. It enforces retries and timeouts uniformly across all services, preventing cascading failures when a downstream service degrades.</div>
+    </div>
+
+    <div class="sdiv"><span class="sdiv-n">3</span><span class="sdiv-label">Deployment Layer — Zero Downtime</span><span class="sdiv-line"></span></div>
+    <div class="card">
+      <div class="card-t">ArgoCD canary rollouts vs Route 53 failover — two different scopes</div>
+      <div class="card-b"><strong>ArgoCD</strong> manages <em>version</em> rollouts within a region: deploy v2 to 10% of eu-west-1 traffic, monitor Prometheus error rates for 15 minutes, ramp to 100% if stable. Rollback is a single Git revert.<br><br><strong>Route 53 health checks</strong> manage <em>regional availability</em>: if a region's health check fails, Route 53 shifts DNS weight away in &lt;60 seconds. These compose cleanly — ArgoCD controls which version runs, Route 53 controls whether a region serves traffic at all. Confusing the two is a common interview mistake.</div>
+    </div>
+
+    <div class="sdiv"><span class="sdiv-n">4</span><span class="sdiv-label">Data Layer — Consistency &amp; Resilience</span><span class="sdiv-line"></span></div>
+    <div class="card">
+      <div class="card-t">Eventual consistency via CQRS + DynamoDB Global Tables + Kafka</div>
+      <div class="card-b">The key design decision is your consistency model. Strong consistency across regions requires distributed transactions — slow, expensive, complex. Eventual consistency via CQRS/ES is fast but requires application logic to handle stale reads.<br><br>Each region writes to its local <strong>DynamoDB Global Table</strong>, which replicates asynchronously to all other regions. <strong>Kafka</strong> replicates domain events cross-region with dead-letter queues for retry on delivery failure. Reads always hit the local region's replica — latency stays low, but a write from us-east-1 may not be visible in eu-west-1 for a few hundred milliseconds.</div>
+    </div>
+
+    <div class="sdiv"><span class="sdiv-n">5</span><span class="sdiv-label">Observability — Proactive Failure Detection</span><span class="sdiv-line"></span></div>
+    <div class="card">
+      <div class="card-t">Prometheus federation + ELK + Litmus chaos engineering</div>
+      <div class="card-b">Regional Prometheus instances federate into a central aggregator. ELK ingests structured logs from all regions. Alert on latency &gt;200ms via PagerDuty with auto-remediation (drain unhealthy pods).<br><br>The part most architecture answers skip: <strong>chaos engineering with Litmus</strong>. Inject failures in staging — node kill, network partition, pod kill — and measure whether your failover actually behaves as designed. Don't trust the design until the chaos tests pass.</div>
+    </div>
+
+    <div class="callout callout-warn" style="margin-top:1.25rem;">
+      ⚠️ <strong>Cost trade-off:</strong> Multi-region doubles approximate infrastructure cost (compute, data transfer, redundant tooling). Start with 2 regions. Expand based on real traffic geographic data — not assumptions about where users are. Validate with Locust load tests before going live.
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════
+       Q2: MULTI-CLOUD
+  ══════════════════════════════════ -->
+  <section class="q-section" id="q2" data-n="02">
+    <div class="q-eyebrow">Question 2 · Cloud Strategy</div>
+    <h2>We host everything on one cloud. How would you plan a multi-cloud or hybrid migration?</h2>
+    <div class="q-goal">Target: Structured evaluation, phased migration, no business disruption</div>
+    <div class="q-chips">
+      <span class="chip chip-a">AWS Cost Explorer</span>
+      <span class="chip chip-g">Terraform</span>
+      <span class="chip chip-b">Aviatrix</span>
+      <span class="chip chip-g">Anthos</span>
+      <span class="chip chip-a">Azure DMS</span>
+    </div>
+
+    <div class="callout callout-test">
+      <strong>What the interviewer is testing:</strong> Whether you jump straight to tooling (Terraform, Anthos) or correctly start at the business and risk layer. Candidates who open with "we'd use Terraform to provision both clouds" are skipping the hard part.
+    </div>
+
+    <div class="callout callout-tldr" style="margin-top:1rem;">
+      <div class="callout-tldr-label">TL;DR</div>
+      <ul>
+        <li>Start with a workload audit — you cannot plan what you haven't inventoried</li>
+        <li>Score each workload on risk vs. benefit; move low-risk workloads first</li>
+        <li>Run PoCs for critical migration paths before committing to the full roadmap</li>
+        <li>Phase: lift-and-shift → refactor → retire. Each phase 3–6 months with explicit rollback plans</li>
+        <li><strong>Honest caveat:</strong> most teams shouldn't do multi-cloud unless there's a concrete forcing function</li>
+      </ul>
+    </div>
+
+    <div class="sdiv"><span class="sdiv-n">1</span><span class="sdiv-label">Evaluation Phase — Before Touching Anything</span><span class="sdiv-line"></span></div>
+    <div class="phases">
+      <span class="pb pb-a">Step 1: Audit</span>
+      <span class="pb pb-a">Step 2: Score</span>
+      <span class="pb pb-a">Step 3: PoC</span>
+      <span class="pb pb-a">Step 4: Gap Analysis</span>
+    </div>
+
+    <div class="card">
+      <div class="card-t">1. Current State Audit</div>
+      <div class="card-b">Inventory every workload using <code>AWS Cost Explorer</code>, <code>Azure Migrate</code>, or <code>GCP Migration Center</code>. Capture: service dependencies, monthly cost, performance SLAs, and owner teams. You cannot plan a migration without this baseline — guessing creates expensive surprises mid-project.</div>
+    </div>
+    <div class="card">
+      <div class="card-t">2. Risk &amp; Benefit Scoring Matrix</div>
+      <div class="card-b">Score each workload 1–5 across: data sovereignty, vendor lock-in depth, uptime requirements, and migration complexity. High-risk workloads (PCI-compliant DBs, undocumented monoliths) stay single-cloud in Phase 1. Low-risk candidates move first: dev environments, static frontends, batch jobs.</div>
+    </div>
+    <div class="card">
+      <div class="card-t">3. Gap Analysis + Proof of Concept</div>
+      <div class="card-b">Map services to target equivalents: <code>AWS S3 → Azure Blob Storage</code>, <code>RDS → Cloud SQL</code>, <code>Lambda → Cloud Functions</code>. Identify where 1:1 equivalents don't exist. Run a 2-week PoC for critical paths — incompatibilities found mid-migration are 10× more expensive than discovering them in a PoC.</div>
+    </div>
+
+    <div class="sdiv"><span class="sdiv-n">2</span><span class="sdiv-label">Planning Phase — Architecture &amp; Roadmap</span><span class="sdiv-line"></span></div>
+    <div class="phases">
+      <span class="pb pb-g">Phase A: Lift &amp; Shift</span>
+      <span class="pb pb-g">Phase B: Refactor</span>
+      <span class="pb pb-g">Phase C: Retire</span>
+    </div>
+
+    <div class="card">
+      <div class="card-t">Three-phase migration</div>
+      <div class="card-b"><strong>Phase A — Lift and shift</strong> non-critical workloads (dev environments, internal tools, batch jobs). Minimal re-architecture, fast to execute.<br><br><strong>Phase B — Refactor</strong> stateful services: move to Kubernetes (EKS/AKS) for portability. Abstract data access behind service interfaces to decouple from provider-specific storage. Timeline: 3–6 months per wave.<br><br><strong>Phase C — Retire</strong> workloads that can be replaced by a managed SaaS — don't migrate what you can eliminate. Every phase needs an explicit rollback plan before starting.</div>
+    </div>
+    <div class="card">
+      <div class="card-t">Cross-cloud toolchain</div>
+      <div class="card-b">
+        <span class="chip chip-a" style="font-size:.68rem;">Terraform</span> — portable IaC across AWS, Azure, GCP, VMware<br>
+        <span class="chip chip-b" style="font-size:.68rem;">Aviatrix / Megaport</span> — private cross-cloud transit<br>
+        <span class="chip chip-g" style="font-size:.68rem;">Anthos / Azure Arc</span> — unified Kubernetes control plane<br>
+        <span class="chip chip-p" style="font-size:.68rem;">AWS DMS / Striim</span> — streaming replication during migration with zero downtime
+      </div>
+    </div>
+
+    <div class="sdiv"><span class="sdiv-n">3</span><span class="sdiv-label">Real Examples</span><span class="sdiv-line"></span></div>
+    <table class="dtable">
+      <thead><tr><th>Scenario</th><th>Approach</th><th>Key Tool</th><th>Outcome</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Multi-cloud</strong></td><td>Compute stays on AWS; ML inference migrated to GCP for BigQuery ML</td><td>Anthos for unified K8s</td><td>40% ML latency improvement; unified control plane</td></tr>
+        <tr><td><strong>Hybrid</strong></td><td>Analytics: on-prem Hadoop → Azure Synapse; PII data stays on-prem (compliance)</td><td>Azure Data Factory</td><td>Cloud elasticity for batch; compliance requirements maintained</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout callout-warn">
+      ⚠️ <strong>The honest take:</strong> Don't do multi-cloud unless there's a concrete forcing function. Operational complexity roughly doubles. Every service abstracted across clouds must be understood in two flavours by your ops team. Legitimate reasons: cloud-specific capabilities (GCP BigQuery), regulatory geo-restrictions, vendor negotiation leverage.
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════
+       Q3: IAC STRUCTURE
+  ══════════════════════════════════ -->
+  <section class="q-section" id="q3" data-n="03">
+    <div class="q-eyebrow">Question 3 · Infrastructure as Code</div>
+    <h2>How do you structure IaC modules and environments to maximize reuse, safety, and clarity?</h2>
+    <div class="q-goal">Target: 80%+ code reuse · isolated prod state · new engineer productive in &lt;1 hour</div>
+    <div class="q-chips">
+      <span class="chip chip-a">Terraform</span>
+      <span class="chip chip-g">Monorepo</span>
+      <span class="chip chip-b">S3 Remote State</span>
+      <span class="chip chip-b">DynamoDB Lock</span>
+      <span class="chip chip-p">Git Tags</span>
+    </div>
+
+    <div class="callout callout-test">
+      <strong>What the interviewer is testing:</strong> Most candidates describe what Terraform can do. Strong answers describe a specific, opinionated directory structure and explain the reasoning behind every decision — especially why they chose directories over workspaces.
+    </div>
+
+    <div class="callout callout-tldr" style="margin-top:1rem;">
+      <div class="callout-tldr-label">TL;DR</div>
+      <ul>
+        <li>Monorepo: <code>modules/</code> (reusable) + <code>environments/</code> (composition) + <code>global/</code> (shared)</li>
+        <li>Separate directories per environment — not Terraform workspaces — for true blast-radius isolation</li>
+        <li>Remote state in S3 per environment, DynamoDB lock to prevent concurrent apply corruption</li>
+        <li>Modules referenced by Git tag in prod — never local paths — to prevent silent drift</li>
+        <li>Secrets via Vault or AWS SSM Parameter Store, never in <code>.tfvars</code></li>
+      </ul>
+    </div>
+
+    <div class="sdiv"><span class="sdiv-n">1</span><span class="sdiv-label">Monorepo Directory Structure</span><span class="sdiv-line"></span></div>
+    <div class="dirtree">
+<span class="td">infrastructure/</span>
+├── <span class="td">modules/</span>                 <span class="tc"># Reusable, parameterized, versioned modules</span>
+│   ├── <span class="td">vpc/</span>
+│   │   ├── <span class="tv">main.tf</span>          <span class="tc"># resource definitions</span>
+│   │   ├── <span class="tv">variables.tf</span>     <span class="tc"># all inputs parameterized</span>
+│   │   └── <span class="tv">outputs.tf</span>       <span class="tc"># outputs for cross-module refs</span>
+│   ├── <span class="td">eks-cluster/</span>
+│   └── <span class="td">rds-instance/</span>
+│
+├── <span class="td">environments/</span>            <span class="tc"># Environment-specific composition only</span>
+│   ├── <span class="td">dev/</span>
+│   │   ├── <span class="tv">main.tf</span>          <span class="tc"># calls modules with dev config</span>
+│   │   ├── <span class="tv">terraform.tfvars</span> <span class="tc"># t3.micro, 1 AZ, no HA</span>
+│   │   └── <span class="tv">backend.tf</span>       <span class="tc"># state → s3://tf-state-dev</span>
+│   ├── <span class="td">staging/</span>
+│   │   ├── <span class="tv">main.tf</span>
+│   │   ├── <span class="tv">terraform.tfvars</span> <span class="tc"># m5.large, 2 AZs, mirrors prod topology</span>
+│   │   └── <span class="tv">backend.tf</span>       <span class="tc"># state → s3://tf-state-staging</span>
+│   └── <span class="td">prod/</span>
+│       ├── <span class="tv">main.tf</span>
+│       ├── <span class="tv">terraform.tfvars</span> <span class="tc"># m5.4xlarge, 3 AZs, multi-AZ RDS</span>
+│       └── <span class="tv">backend.tf</span>       <span class="tc"># state → s3://tf-state-prod + DynamoDB lock</span>
+│
+├── <span class="td">global/</span>                  <span class="tc"># Shared cross-env (IAM roles, DNS zones)</span>
+│   └── <span class="tv">main.tf</span>
+└── <span class="tv">README.md</span>                <span class="tc"># Module conventions, naming, how to add an env</span></div>
+
+    <div class="sdiv"><span class="sdiv-n">2</span><span class="sdiv-label">Why Directories Over Workspaces</span><span class="sdiv-line"></span></div>
+    <div class="card">
+      <div class="card-t">Workspaces share code. Directories don't.</div>
+      <div class="card-b">Terraform workspaces use identical <code>.tf</code> files with different state backends. A misconfigured variable in a shared file affects every environment simultaneously. Separate directories make each environment a fully independent deployable unit: <code>cd environments/prod &amp;&amp; terraform apply</code>. The blast radius of any mistake is explicitly bounded to that directory.</div>
+    </div>
+
+    <div class="sdiv"><span class="sdiv-n">3</span><span class="sdiv-label">Remote State &amp; Locking</span><span class="sdiv-line"></span></div>
+    <div class="codeblock">
+      <div class="codeblock-hdr">📄 <span>environments/prod/backend.tf</span></div>
+      <pre><code><span class="ti">terraform</span> {
+  backend <span class="ts">"s3"</span> {
+    bucket         = <span class="ts">"tf-state-prod-123456789"</span>
+    key            = <span class="ts">"infrastructure/terraform.tfstate"</span>
+    region         = <span class="ts">"us-east-1"</span>
+    dynamodb_table = <span class="ts">"tf-lock-prod"</span>    <span class="tc"># prevents concurrent applies corrupting state</span>
+    encrypt        = <span class="tv">true</span>
+  }
+}</code></pre>
+    </div>
+
+    <div class="sdiv"><span class="sdiv-n">4</span><span class="sdiv-label">Module Versioning via Git Tags</span><span class="sdiv-line"></span></div>
+    <div class="codeblock">
+      <div class="codeblock-hdr">📄 <span>environments/prod/main.tf</span> — pinned to release tag</div>
+      <pre><code><span class="ti">module</span> <span class="ts">"vpc"</span> {
+  <span class="tc"># Pin to release tag — prod can never silently pick up unreviewed module changes</span>
+  source = <span class="ts">"git::https://github.com/org/infra-modules.git//vpc?ref=v1.4.2"</span>
+  cidr   = <span class="tv">var.vpc_cidr</span>
+  azs    = <span class="tv">var.availability_zones</span>
+}
+
+<span class="ti">module</span> <span class="ts">"eks"</span> {
+  source        = <span class="ts">"git::https://github.com/org/infra-modules.git//eks-cluster?ref=v1.4.2"</span>
+  instance_type = <span class="tv">var.node_instance_type</span>   <span class="tc"># m5.4xlarge from prod.tfvars</span>
+  min_nodes     = <span class="tv">var.min_nodes</span>            <span class="tc"># 3 in prod.tfvars</span>
+  vpc_id        = <span class="tv">module.vpc.vpc_id</span>        <span class="tc"># cross-module reference</span>
+}</code></pre>
+    </div>
+
+    <div class="callout-insight">
+      The biggest structural win is <strong>onboarding speed</strong>. A new engineer opens <code>environments/prod/main.tf</code>, reads 30 lines of module calls, and understands exactly what's deployed — every resource traceable to a specific versioned module. No reading 4,000 lines of flat Terraform to understand production.
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════
+       Q4: DEPLOYMENT STRATEGIES
+  ══════════════════════════════════ -->
+  <section class="q-section" id="q4" data-n="04">
+    <div class="q-eyebrow">Question 4 · Deployments</div>
+    <h2>What are the trade-offs between Blue/Green, Canary, and Rolling deployments?</h2>
+    <div class="q-goal">Target: Match strategy to context — not just define each one</div>
+    <div class="q-chips">
+      <span class="chip chip-b">Blue/Green</span>
+      <span class="chip chip-a">Canary</span>
+      <span class="chip chip-g">Rolling</span>
+      <span class="chip chip-g">ArgoCD</span>
+      <span class="chip chip-b">Istio</span>
+    </div>
+
+    <div class="callout callout-test">
+      <strong>What the interviewer is testing:</strong> Whether you can map deployment strategy to application context — statelessness, team monitoring maturity, infrastructure cost, and rollback time requirements all determine the right answer. Candidates who only define the three strategies without discussing trade-offs give weak answers.
+    </div>
+
+    <div class="callout callout-tldr" style="margin-top:1rem;">
+      <div class="callout-tldr-label">TL;DR</div>
+      <ul>
+        <li><strong>Blue/Green:</strong> safest rollback, instant cutover — but ~2× infra cost and painful with DB migrations</li>
+        <li><strong>Canary:</strong> real-user validation before full rollout — but requires mature observability and is slower</li>
+        <li><strong>Rolling:</strong> zero extra resources, in-place — but no instant rollback and mixed-version risk</li>
+        <li>The hidden question interviewers ask: <em>"How long does rollback take?"</em> Only Blue/Green answers: seconds</li>
+      </ul>
+    </div>
+
+    <div class="sdiv"><span class="sdiv-n">1</span><span class="sdiv-label">At-a-Glance Comparison</span><span class="sdiv-line"></span></div>
+    <div class="cmp-grid">
+      <div class="cmp-card c-blue">
+        <div class="cmp-t">🔵 Blue / Green</div>
+        <ul>
+          <li>Two full parallel environments</li>
+          <li>Instant cutover via LB / DNS flip</li>
+          <li>Instant rollback guaranteed</li>
+          <li>~2× infrastructure cost</li>
+          <li>DB schema changes are complex</li>
+          <li>Both envs must support old + new schema</li>
+        </ul>
+      </div>
+      <div class="cmp-card c-amber">
+        <div class="cmp-t">🐦 Canary</div>
+        <ul>
+          <li>Route % of real users to v2</li>
+          <li>Catches issues unit tests miss</li>
+          <li>Needs traffic splitting (Istio / ALB)</li>
+          <li>Slower full rollout</li>
+          <li>Requires mature observability</li>
+          <li>Rollback = re-routing, not instant</li>
+        </ul>
+      </div>
+      <div class="cmp-card c-green">
+        <div class="cmp-t">🔄 Rolling</div>
+        <ul>
+          <li>Replace pods/instances in batches</li>
+          <li>No extra resources needed</li>
+          <li>Brief mixed-version window</li>
+          <li>Rollback = re-rolling the fleet</li>
+          <li>Best for stateless, backwards-compat APIs</li>
+          <li>Lowest cost, highest frequency suitability</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="sdiv"><span class="sdiv-n">2</span><span class="sdiv-label">Decision Matrix</span><span class="sdiv-line"></span></div>
+    <table class="dtable">
+      <thead><tr><th>Strategy</th><th>Use When</th><th>Avoid When</th><th>Rollback Time</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Blue/Green</strong></td>
+          <td>High-traffic apps, instant rollback non-negotiable, stateless services with clear LB cutover</td>
+          <td>Coupled DB schema migrations — both envs must support old + new schema simultaneously</td>
+          <td>Seconds</td>
+        </tr>
+        <tr>
+          <td><strong>Canary</strong></td>
+          <td>User-facing features where real production traffic validates correctness better than synthetic tests</td>
+          <td>Team lacks observability to detect problems at 5% traffic volume before they spread</td>
+          <td>Minutes</td>
+        </tr>
+        <tr>
+          <td><strong>Rolling</strong></td>
+          <td>Stateless backend microservices; high-frequency low-risk updates; cost-constrained environments</td>
+          <td>Incompatible API versions — mixed v1/v2 window is then a direct source of errors</td>
+          <td>Minutes–hours</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="sdiv"><span class="sdiv-n">3</span><span class="sdiv-label">Real Examples at Scale</span><span class="sdiv-line"></span></div>
+    <div class="card">
+      <div class="card-t">Netflix — Blue/Green for 200M+ user reliability</div>
+      <div class="card-b">Netflix deploys infrastructure updates to a full green environment, validates with synthetic traffic, then switches 100% of load balancer traffic. Blue stays warm for 30 minutes as an instant rollback target. With 200M users, 1 minute of degradation has measurable revenue impact — the 2× infrastructure cost is directly justified by that SLA.</div>
+    </div>
+    <div class="card">
+      <div class="card-t">Etsy — Canary with automated business metric rollback</div>
+      <div class="card-b">Etsy's search team routes 5% of traffic to a new relevance model, monitoring real click-through rates simultaneously. If click-through degrades &gt;2%, the canary auto-rolls back. The key insight: unit tests cannot validate search relevance. User behaviour in production is the only ground truth — and canary is the only strategy that gives you that signal safely.</div>
+    </div>
+    <div class="card">
+      <div class="card-t">AWS Elastic Beanstalk — Rolling for cost-efficient API fleet updates</div>
+      <div class="card-b">Beanstalk replaces EC2 instances in configurable batches (e.g., 25% at a time), draining connections before terminating each batch. No spare capacity required — cost-efficient for stateless HTTP API backends. The constraint: during the rollout window, v1 and v2 serve traffic simultaneously, so your API must be fully backwards-compatible at all times.</div>
+    </div>
+
+    <div class="callout callout-warn">
+      ⚠️ <strong>Frame your answer around rollback time, not just definitions:</strong> Blue/Green = seconds. Canary = re-route traffic = minutes. Rolling = re-roll the fleet = minutes to hours depending on batch size. Interviewers want to know you understand the recovery time objective, not just the deployment mechanics.
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════
+       Q5: BUILD VS BUY
+  ══════════════════════════════════ -->
+  <section class="q-section" id="q5" data-n="05">
+    <div class="q-eyebrow">Question 5 · Engineering Judgment</div>
+    <h2>How do you decide when to build internal tooling vs use a managed or third-party tool?</h2>
+    <div class="q-goal">Target: A structured decision framework — not a blanket preference for either approach</div>
+    <div class="q-chips">
+      <span class="chip chip-a">TCO Analysis</span>
+      <span class="chip chip-r">Compliance</span>
+      <span class="chip chip-g">Hybrid Approach</span>
+      <span class="chip chip-b">Time to Value</span>
+    </div>
+
+    <div class="callout callout-test">
+      <strong>What the interviewer is testing:</strong> Judgment and pragmatism. "We always prefer open-source" and "we always buy" are both wrong answers. The right answer is a framework for a specific context — and the self-awareness to acknowledge what most engineering teams get wrong.
+    </div>
+
+    <div class="callout callout-tldr" style="margin-top:1rem;">
+      <div class="callout-tldr-label">TL;DR</div>
+      <ul>
+        <li>Build when: requirements are genuinely unique, data must be air-gapped, it's a core differentiator</li>
+        <li>Buy when: the problem is commoditised, speed matters, maintenance would distract from product work</li>
+        <li>Hybrid is often correct: managed foundation + thin internal layer for org-specific policy only</li>
+        <li>Most teams over-build. Maintenance debt compounds and consumes the engineers who should build product</li>
+      </ul>
+    </div>
+
+    <div class="sdiv"><span class="sdiv-n">1</span><span class="sdiv-label">The Decision Framework</span><span class="sdiv-line"></span></div>
+    <div class="split">
+      <div class="split-card build">
+        <h4>🔨 Build Internal When…</h4>
+        <ul>
+          <li>Requirements are <strong>genuinely unique</strong> — building less customisation than the tool saves</li>
+          <li>A <strong>core competitive differentiator</strong> — you want to own it as IP</li>
+          <li>Data must remain <strong>air-gapped</strong> — compliance, sovereignty, or security prohibits third-party access</li>
+          <li>Long-term TCO is lower <strong>and</strong> team has sustainable bandwidth to maintain it</li>
+        </ul>
+      </div>
+      <div class="split-card buy">
+        <h4>🛒 Use Managed / Third-Party When…</h4>
+        <ul>
+          <li>The problem is <strong>solved and commoditised</strong> — multiple mature vendors compete on this</li>
+          <li>Speed to value matters more — <strong>days to integrate, not quarters to build</strong></li>
+          <li>Maintenance burden would <strong>distract from core product</strong> engineering</li>
+          <li>Vendor provides compliance certs (SOC 2, PCI, FedRAMP) you'd otherwise earn independently</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="sdiv"><span class="sdiv-n">2</span><span class="sdiv-label">Weighted Scoring — Use This in Interviews</span><span class="sdiv-line"></span></div>
+    <table class="dtable">
+      <thead><tr><th>Factor</th><th>Signals Build</th><th>Signals Buy</th><th>Weight</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Customisation depth</strong></td><td>Unique / proprietary workflow</td><td>Standard requirements + minor tweaks</td><td>High</td></tr>
+        <tr><td><strong>Time to value</strong></td><td>Team has 3–6 months available</td><td>Need it working in 1–2 weeks</td><td>High</td></tr>
+        <tr><td><strong>Maintenance overhead</strong></td><td>Dedicated team, clear ownership</td><td>Vendor SLA; want zero ops burden</td><td>Medium</td></tr>
+        <tr><td><strong>Total cost of ownership</strong></td><td>Build TCO &lt; subscription at scale</td><td>Subscription cheaper than eng + infra hours</td><td>High</td></tr>
+        <tr><td><strong>Data sensitivity</strong></td><td>Full control required; air-gapped</td><td>Standard data handling acceptable</td><td>Context-dependent</td></tr>
+      </tbody>
+    </table>
+
+    <div class="sdiv"><span class="sdiv-n">3</span><span class="sdiv-label">Three Real Examples</span><span class="sdiv-line"></span></div>
+    <div class="card">
+      <div class="card-t">🔨 Build — Custom CI/CD orchestrator for fintech (air-gapped)</div>
+      <div class="card-b">A firm with PCI-DSS and FedRAMP requirements cannot route deployment artefacts through a third-party CI/CD SaaS. They build an internal orchestrator integrating with their HSM, audit log systems, and change management DB. Cost: 3–6 months engineering time. Benefit: complete audit control, zero external data egress, certifiable pipeline.</div>
+    </div>
+    <div class="card">
+      <div class="card-t">🛒 Buy — Monitoring with Datadog instead of homegrown stack</div>
+      <div class="card-b">Building a production-grade monitoring stack (ingest, time-series storage, anomaly detection, dashboards, alerting, on-call routing) for a Kubernetes fleet requires 3–5 dedicated platform engineers with ongoing maintenance. Datadog installs via a 10-minute Helm chart, provides pre-built Kubernetes dashboards, and handles petabyte-scale ingestion. The build-vs-buy math is unambiguous.</div>
+    </div>
+    <div class="card">
+      <div class="card-t">⚡ Hybrid — Internal GitOps controller wrapping ArgoCD</div>
+      <div class="card-b">A platform team wraps ArgoCD with a thin internal controller that adds org-specific policy: auto-approval gates tied to JIRA ticket status, custom RBAC via internal IdP, notifications to Slack with contextual runbook links. The core sync engine is ArgoCD (battle-tested). The internal layer covers only what's genuinely unique. This pattern — managed foundation, minimal internal surface area — is often the correct architecture.</div>
+    </div>
+
+    <div class="callout callout-danger">
+      🚨 <strong>Most important observation:</strong> Engineering teams systematically over-build. Building is intellectually stimulating — evaluating vendors is not. Teams default to build decisions without running real TCO numbers. A strong platform lead actively challenges unnecessary in-house builds, because every internal tool creates a maintenance obligation that compounds and eventually consumes the engineers who should be building product.
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    <span>© 2026 rishcloudops</span>
+    <div class="footer-links">
+      <a href="../index.html">← All posts</a>
+      <a href="https://github.com/rikkhanna" target="_blank">GitHub</a>
+      <a href="mailto:riishabh.khanna@gmail.com">Email</a>
+    </div>
+  </footer>
+</main>
+
+<script>
+  // Scroll spy
+  const sections = ['overview','q1','q2','q3','q4','q5'];
+  const links = document.querySelectorAll('.sb-link');
+
+  function onScroll() {
+    const scrollY = window.scrollY + 120;
+    let current = 'overview';
+    sections.forEach(id => {
+      const el = document.getElementById(id);
+      if (el && el.offsetTop <= scrollY) current = id;
+    });
+    links.forEach(l => {
+      l.classList.toggle('is-active', l.dataset.section === current);
+    });
+
+    // Progress bar
+    const docH = document.documentElement.scrollHeight - window.innerHeight;
+    const pct = docH > 0 ? Math.round((window.scrollY / docH) * 100) : 0;
+    document.getElementById('prog').style.width = pct + '%';
+  }
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  // Mobile sidebar toggle
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('mob-open');
+  }
+
+  // Close sidebar on link click (mobile)
+  document.querySelectorAll('.sb-link').forEach(l => {
+    l.addEventListener('click', () => {
+      document.getElementById('sidebar').classList.remove('mob-open');
+    });
+  });
+</script>
+
+</body>
+</html>
